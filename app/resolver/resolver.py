@@ -3,7 +3,7 @@ from pathlib import Path
 
 from app.models import ParsedCommand, ResolvedTarget
 from app.resolver.app_index import find_best_app_matches
-from app.resolver.file_search import detect_explicit_path, search_files_prioritized
+from app.resolver.file_search import detect_explicit_path, search_indexed_targets
 
 
 class TargetResolver:
@@ -58,13 +58,10 @@ class TargetResolver:
                     candidates=app_candidates
                 )
 
-            return ResolvedTarget(
-                success=False,
-                error="Не удалось надежно определить приложение."
-            )
+            return ResolvedTarget(success=False, error="Не удалось надежно определить приложение.")
 
         if command.intent == "open_file" or command.intent == "play_media":
-            file_candidates = search_files_prioritized(command.target_text, only_folders=False)
+            file_candidates = search_indexed_targets(command.target_text, "file")
 
             if file_candidates:
                 print("[DEBUG] file candidates:")
@@ -83,7 +80,7 @@ class TargetResolver:
             return ResolvedTarget(success=False, error="Файл не найден.")
 
         if command.intent == "open_folder":
-            folder_candidates = search_files_prioritized(command.target_text, only_folders=True)
+            folder_candidates = search_indexed_targets(command.target_text, "folder")
 
             if folder_candidates:
                 print("[DEBUG] folder candidates:")

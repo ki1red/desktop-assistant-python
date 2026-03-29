@@ -4,10 +4,19 @@ from app.nlu.parser import CommandParser
 from app.resolver.resolver import TargetResolver
 from app.executor.executor import CommandExecutor
 from app.response.presenter import ResponsePresenter
+from app.indexing.indexer import rebuild_index, get_index_count
 
 
 def main():
     print("=== Local PC Assistant ===")
+
+    count = get_index_count()
+    if count == 0:
+        print("[INDEX] Индекс пуст. Начинаю первичную индексацию...")
+        rebuild_index()
+        count = get_index_count()
+        print(f"[INDEX] Готово. В индексе объектов: {count}")
+
     print("Нажми Enter, чтобы записать голосовую команду...")
     input()
 
