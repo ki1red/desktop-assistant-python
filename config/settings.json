@@ -35,12 +35,12 @@
     "start_menu_user": true,
     "start_menu_common": true,
     "extra_paths": [
-      "C:\\",
+      "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
       "C:\\Program Files",
       "C:\\Program Files (x86)",
-      "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
-      "Документы",
       "C:\\Users\\druzh\\OneDrive\\Рабочий стол",
+      "Документы",
+      "C:\\",
       "Загрузки"
     ]
   },

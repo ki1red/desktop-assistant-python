@@ -37,6 +37,21 @@ class CommandExecutor:
                 intent=command.intent
             )
 
+        if resolved.needs_confirmation:
+            self.notifier.notify(AssistantAnnouncement(
+                stage="before_execute",
+                text=resolved.confirmation_message or "Нужно подтверждение.",
+                intent=command.intent,
+                target_name=resolved.target_name,
+                target_path=resolved.target_path
+            ))
+            return ExecutionResult(
+                success=False,
+                message=resolved.confirmation_message or "Нужно подтверждение.",
+                intent=command.intent,
+                target_path=resolved.target_path
+            )
+
         if not resolved.success or not resolved.target_path:
             self.notifier.notify(AssistantAnnouncement(
                 stage="error",

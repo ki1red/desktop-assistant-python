@@ -7,7 +7,6 @@ from app.text_variants import normalize_basic, build_name_variants
 
 
 def init_history_tables():
-    # Уже создаются в init_db()
     pass
 
 
@@ -31,7 +30,7 @@ def save_usage(query_text: str, intent: str, target_name: str, target_path: str,
     normalized_query = normalize_basic(query_text or "")
     if normalized_query and target_path:
         cur.execute("""
-        SELECT id, open_count, fail_count
+        SELECT id
         FROM usage_stats
         WHERE normalized_query = ? AND intent = ? AND target_path = ?
         """, (normalized_query, intent, target_path))
@@ -178,6 +177,50 @@ def register_negative_feedback(target_path: str):
     SET fail_count = fail_count + 1
     WHERE target_path = ?
     """, (target_path,))
+
+    conn.commit()
+    conn.close()
+
+
+def register_positive_feedback(target_path: str):
+    if not target_path:
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    UPDATE usage_stats
+    SET open_count = open_count + 1
+    WHERE target_path = ?
+    """, (target_path,))
+
+    conn.commit()
+    conn.close()
+
+
+def teach_alias(alias: str, target_name: str, target_path: str, target_type: str, intent: str = "generic_open"):
+    alias_norm = normalize_basic(alias)
+    if not alias_norm or not target_path:
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    INSERT OR REPLACE INTO usage_stats
+    (normalized_query, intent, target_name, target_path, target_type, open_count, fail_count, last_used_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        alias_norm,
+        intent,
+        target_name,
+        target_path,
+        target_type,
+        5,
+        0,
+        datetime.utcnow().isoformat()
+    ))
 
     conn.commit()
     conn.close()
