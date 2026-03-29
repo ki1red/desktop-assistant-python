@@ -1,21 +1,31 @@
 from pathlib import Path
 
+from app.config_loader import ConfigLoader
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-TEMP_DIR = BASE_DIR / "temp"
+
+_config = ConfigLoader().get()
+
+TEMP_DIR = BASE_DIR / _config["paths"]["temp_dir"]
 TEMP_DIR.mkdir(exist_ok=True)
 
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = BASE_DIR / _config["paths"]["data_dir"]
 DATA_DIR.mkdir(exist_ok=True)
 
-DB_PATH = DATA_DIR / "assistant_index.db"
+DB_PATH = BASE_DIR / _config["paths"]["database_path"]
 
-AUDIO_SAMPLE_RATE = 16000
-AUDIO_CHANNELS = 1
+AUDIO_SAMPLE_RATE = _config["audio"]["sample_rate"]
+AUDIO_CHANNELS = _config["audio"]["channels"]
+RECORD_DURATION_SEC = _config["audio"]["record_duration_sec"]
 
-WHISPER_MODEL_SIZE = "small"
-WHISPER_COMPUTE_TYPE = "int8"
+WHISPER_MODEL_SIZE = _config["speech"]["whisper_model_size"]
+WHISPER_COMPUTE_TYPE = _config["speech"]["whisper_compute_type"]
 
-INDEX_BATCH_SIZE = 500
+INDEX_BATCH_SIZE = _config["search"]["index_batch_size"]
+APP_MATCH_THRESHOLD = _config["search"]["app_match_threshold"]
+FILE_MATCH_THRESHOLD = _config["search"]["file_match_threshold"]
+MAX_CANDIDATES = _config["search"]["max_candidates"]
 
-APP_MATCH_THRESHOLD = 78
-FILE_MATCH_THRESHOLD = 78
+ASSISTANT_SETTINGS = _config["assistant"]
+PRIORITY_ROOTS_CONFIG = _config["priority_roots"]

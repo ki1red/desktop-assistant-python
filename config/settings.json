@@ -1,0 +1,45 @@
+{
+  "paths": {
+    "temp_dir": "temp",
+    "data_dir": "data",
+    "database_path": "data/assistant.db"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "record_duration_sec": 5
+  },
+  "speech": {
+    "whisper_model_size": "small",
+    "whisper_compute_type": "int8"
+  },
+  "search": {
+    "app_match_threshold": 78,
+    "file_match_threshold": 78,
+    "index_batch_size": 500,
+    "max_candidates": 10
+  },
+  "priority_roots": {
+    "cwd": true,
+    "desktop": true,
+    "documents": true,
+    "downloads": true,
+    "recent": true,
+    "start_menu_user": true,
+    "start_menu_common": true,
+    "extra_paths": [
+      "C:\\",
+      "C:\\Program Files",
+      "C:\\Program Files (x86)",
+      "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
+      "Документы",
+      "C:\\Users\\druzh\\OneDrive\\Рабочий стол",
+      "Загрузки"
+    ]
+  },
+  "assistant": {
+    "announce_before_execution": true,
+    "announce_after_execution": true,
+    "debug_candidates": true
+  }
+}

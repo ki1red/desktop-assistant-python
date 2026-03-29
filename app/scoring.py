@@ -1,6 +1,7 @@
 from rapidfuzz import fuzz
 
 from app.text_variants import build_name_variants, normalize_basic, split_tokens
+from app.adaptive.history import get_usage_bonus
 
 
 SOURCE_WEIGHTS = {
@@ -15,7 +16,7 @@ SOURCE_WEIGHTS = {
 }
 
 
-def score_candidate(query: str, candidate_name: str, source_kind: str = "global") -> float:
+def score_candidate(query: str, candidate_name: str, source_kind: str = "global", target_path: str = "") -> float:
     q = normalize_basic(query)
     if not q:
         return 0
@@ -31,7 +32,6 @@ def score_candidate(query: str, candidate_name: str, source_kind: str = "global"
 
         for cv in candidate_variants:
             cv_tokens = set(split_tokens(cv))
-
             score = 0.0
 
             if qv == cv:
@@ -49,17 +49,16 @@ def score_candidate(query: str, candidate_name: str, source_kind: str = "global"
                     token_ratio = (len(inter) / max(len(qv_tokens), len(cv_tokens))) * 100
                     score = max(score, 70 + token_ratio * 0.2)
 
-                    # бонус, если все токены запроса покрыты
                     if qv_tokens.issubset(cv_tokens):
                         score = max(score, 92)
 
-            ratio = fuzz.ratio(qv, cv)
-            token_sort = fuzz.token_sort_ratio(qv, cv)
-            token_set = fuzz.token_set_ratio(qv, cv)
+            score = max(
+                score,
+                fuzz.ratio(qv, cv),
+                fuzz.token_sort_ratio(qv, cv),
+                fuzz.token_set_ratio(qv, cv)
+            )
 
-            score = max(score, ratio, token_sort, token_set)
-
-            # штраф за случай, когда совпало только "яндекс" с длинным именем
             if len(qv_tokens) == 1 and len(cv_tokens) >= 2 and list(qv_tokens)[0] in cv_tokens:
                 score -= 6
 
@@ -67,4 +66,8 @@ def score_candidate(query: str, candidate_name: str, source_kind: str = "global"
                 best = score
 
     best += SOURCE_WEIGHTS.get(source_kind, 0)
+
+    if target_path:
+        best += get_usage_bonus(q, target_path)
+
     return min(best, 100)

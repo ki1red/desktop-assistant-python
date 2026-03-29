@@ -54,16 +54,7 @@ def rebuild_index():
     buffer = []
 
     roots = get_priority_roots()
-
-    ordered_sources = [
-        "cwd",
-        "desktop",
-        "documents",
-        "downloads",
-        "recent",
-        "start_menu_user",
-        "start_menu_common",
-    ]
+    ordered_sources = list(roots.keys())
 
     for source_kind in ordered_sources:
         root_path = roots.get(source_kind)
@@ -75,12 +66,10 @@ def rebuild_index():
 
             try:
                 for d in dirs:
-                    full_path = str(Path(root) / d)
-                    buffer.append(_make_record(full_path, source_kind))
+                    buffer.append(_make_record(str(Path(root) / d), source_kind))
 
                 for f in files:
-                    full_path = str(Path(root) / f)
-                    buffer.append(_make_record(full_path, source_kind))
+                    buffer.append(_make_record(str(Path(root) / f), source_kind))
 
                 if len(buffer) >= INDEX_BATCH_SIZE:
                     cur.executemany("""
@@ -100,12 +89,10 @@ def rebuild_index():
 
             try:
                 for d in dirs:
-                    full_path = str(Path(root) / d)
-                    buffer.append(_make_record(full_path, "global"))
+                    buffer.append(_make_record(str(Path(root) / d), "global"))
 
                 for f in files:
-                    full_path = str(Path(root) / f)
-                    buffer.append(_make_record(full_path, "global"))
+                    buffer.append(_make_record(str(Path(root) / f), "global"))
 
                 if len(buffer) >= INDEX_BATCH_SIZE:
                     cur.executemany("""
