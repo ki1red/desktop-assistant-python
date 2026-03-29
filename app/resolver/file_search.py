@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.models import Candidate
 from app.indexing.db import get_connection
 from app.scoring import score_candidate
-from app.config import FILE_MATCH_THRESHOLD, MAX_CANDIDATES
+from app.config import FILE_MATCH_THRESHOLD, MAX_CANDIDATES, PRIORITY_CONFIDENT_SCORE
 from app.utils import get_priority_roots
 
 
@@ -71,11 +71,8 @@ def search_indexed_targets(query: str, wanted_type: str) -> List[Candidate]:
     priority_rows = _fetch_candidates_by_type(wanted_type, priority_source_kinds)
     priority_results = _score_rows(query, priority_rows)
 
-    if priority_results:
-        best = priority_results[0]
-        if best.score >= 86:
-            return priority_results
+    if priority_results and priority_results[0].score >= PRIORITY_CONFIDENT_SCORE:
+        return priority_results
 
     all_rows = _fetch_candidates_by_type(wanted_type, None)
-    all_results = _score_rows(query, all_rows)
-    return all_results
+    return _score_rows(query, all_rows)

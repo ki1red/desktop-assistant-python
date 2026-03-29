@@ -3,3 +3,4 @@ sounddevice
 soundfile
 numpy
 RapidFuzz
+pynput

@@ -32,6 +32,8 @@ class ResolvedTarget:
     target_path: Optional[str] = None
     candidates: List[Candidate] = field(default_factory=list)
     error: Optional[str] = None
+    needs_confirmation: bool = False
+    confirmation_message: Optional[str] = None
 
 
 @dataclass

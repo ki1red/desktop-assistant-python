@@ -4,6 +4,8 @@ from app.models import ParsedCommand, ResolvedTarget, ExecutionResult
 from app.events.event_models import AssistantAnnouncement
 from app.events.notifier import AssistantNotifier
 from app.config import ASSISTANT_SETTINGS
+from app.session.state import session_state
+from app.adaptive.history import register_negative_feedback
 
 
 class CommandExecutor:
@@ -11,6 +13,30 @@ class CommandExecutor:
         self.notifier = AssistantNotifier()
 
     def execute(self, command: ParsedCommand, resolved: ResolvedTarget) -> ExecutionResult:
+        if command.intent == "negative_feedback":
+            last_resolved = session_state.last_resolved
+            if last_resolved and last_resolved.target_path:
+                register_negative_feedback(last_resolved.target_path)
+                self.notifier.notify(AssistantAnnouncement(
+                    stage="after_execute",
+                    text=f"Понял. Отмечу, что прошлый выбор был ошибочным: {last_resolved.target_name}",
+                    intent=command.intent,
+                    target_name=last_resolved.target_name,
+                    target_path=last_resolved.target_path
+                ))
+                return ExecutionResult(
+                    success=True,
+                    message="Негативная обратная связь сохранена.",
+                    intent=command.intent,
+                    target_path=last_resolved.target_path
+                )
+
+            return ExecutionResult(
+                success=False,
+                message="Нет последнего действия, которое можно пометить как ошибочное.",
+                intent=command.intent
+            )
+
         if not resolved.success or not resolved.target_path:
             self.notifier.notify(AssistantAnnouncement(
                 stage="error",

@@ -4,25 +4,26 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Ассистент на Python.&#10;Уже распознаёт команды в большинстве случаев, индексирует файлы системы и имеет приоритетные для проверки папки.">
-      <change afterPath="$PROJECT_DIR$/app/adaptive/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/adaptive/history.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/config_loader.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/events/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/events/event_models.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/events/notifier.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build_index.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Настрйоки вынесены в конфиги.&#10;Создана локальная бд для индексации.">
+      <change afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/background_runner.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/resolver/path_utils.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/session/state.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/run_background.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/adaptive/history.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/adaptive/history.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/executor/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/executor/executor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/indexing/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/indexing/db.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/indexing/indexer.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/indexing/indexer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/resolver/app_index.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/app_index.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/resolver/file_search.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/file_search.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/scoring.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/scoring.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/resolver/resolver.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/resolver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,6 +74,7 @@
     "Python.build_index.executor": "Run",
     "Python.main.executor": "Run",
     "Python.resolver.executor": "Run",
+    "Python.run_background.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -111,7 +113,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774766299521</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Настрйоки вынесены в конфиги.&#10;Создана локальная бд для индексации.">
+      <option name="closed" value="true" />
+      <created>1774769821405</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1774769821405</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -128,6 +138,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Базовый проект, переписанный с C#" />
     <MESSAGE value="Ассистент на Python.&#10;Уже распознаёт команды в большинстве случаев, индексирует файлы системы и имеет приоритетные для проверки папки." />
-    <option name="LAST_COMMIT_MESSAGE" value="Ассистент на Python.&#10;Уже распознаёт команды в большинстве случаев, индексирует файлы системы и имеет приоритетные для проверки папки." />
+    <MESSAGE value="Настрйоки вынесены в конфиги.&#10;Создана локальная бд для индексации." />
+    <option name="LAST_COMMIT_MESSAGE" value="Настрйоки вынесены в конфиги.&#10;Создана локальная бд для индексации." />
   </component>
 </project>
