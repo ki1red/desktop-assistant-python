@@ -32,8 +32,9 @@ class TargetResolver:
 
         best = candidates[0]
 
+        # Если кандидат один, не требуем сверхжёсткий порог
         if len(candidates) == 1:
-            return best.score >= 90
+            return best.score >= 86
 
         second = candidates[1]
 
