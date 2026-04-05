@@ -67,6 +67,20 @@ def init_db():
     """)
 
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS quick_access_targets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        normalized_name TEXT NOT NULL,
+        target_path TEXT NOT NULL UNIQUE,
+        target_type TEXT NOT NULL,
+        provider TEXT NOT NULL DEFAULT 'local',
+        usage_count INTEGER NOT NULL DEFAULT 0,
+        last_used_at TEXT,
+        is_pinned INTEGER NOT NULL DEFAULT 0
+    )
+    """)
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS user_aliases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         alias TEXT NOT NULL UNIQUE,
@@ -87,6 +101,8 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_fs_source ON filesystem_index(source_kind)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_history_query ON usage_history(query_text)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_usage_stats_query ON usage_stats(normalized_query)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_quick_name ON quick_access_targets(normalized_name)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_quick_type ON quick_access_targets(target_type)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_alias_alias ON user_aliases(alias)")
 
     conn.commit()

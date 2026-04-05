@@ -6,7 +6,8 @@ from app.resolver.app_index import find_best_app_matches
 from app.resolver.file_search import detect_explicit_path, search_indexed_targets
 from app.resolver.path_utils import looks_like_explicit_path, validate_path_step_by_step
 from app.adaptive.history import get_direct_usage_match
-from app.config import ASSISTANT_SETTINGS, USAGE_DIRECT_OPEN_SCORE
+from app.adaptive.quick_access import get_quick_access_match
+from app.config import ASSISTANT_SETTINGS, USAGE_DIRECT_OPEN_SCORE, SEARCH_MODE_SETTINGS
 
 
 class CandidateWrapper:
@@ -32,8 +33,9 @@ class TargetResolver:
 
         best = candidates[0]
 
-        # Если кандидат один, не требуем сверхжёсткий порог
         if len(candidates) == 1:
+            if best.target_type == "app":
+                return best.score >= 76
             return best.score >= 86
 
         second = candidates[1]
@@ -68,14 +70,25 @@ class TargetResolver:
 
         best = candidates[0]
 
-        if not force_confirmation and self._is_confident_enough(candidates):
-            return ResolvedTarget(
-                success=True,
-                target_type=best.target_type,
-                target_name=best.name,
-                target_path=best.path,
-                candidates=candidates
-            )
+        # Один нормальный кандидат-приложение можно открывать смелее
+        if not force_confirmation:
+            if len(candidates) == 1 and best.target_type == "app" and best.score >= 76:
+                return ResolvedTarget(
+                    success=True,
+                    target_type=best.target_type,
+                    target_name=best.name,
+                    target_path=best.path,
+                    candidates=candidates
+                )
+
+            if self._is_confident_enough(candidates):
+                return ResolvedTarget(
+                    success=True,
+                    target_type=best.target_type,
+                    target_name=best.name,
+                    target_path=best.path,
+                    candidates=candidates
+                )
 
         top_names = ", ".join(c.name for c in candidates[:3])
         return ResolvedTarget(
@@ -87,6 +100,17 @@ class TargetResolver:
             needs_confirmation=True,
             confirmation_message=f"Я не совсем уверен. Подходящие варианты: {top_names}"
         )
+
+    def _from_quick_access(self, query: str, allowed_types: list[str]):
+        quick = get_quick_access_match(query, allowed_types)
+        if quick and quick["score"] >= 96:
+            return ResolvedTarget(
+                success=True,
+                target_type=quick["target_type"],
+                target_name=quick["name"],
+                target_path=quick["path"]
+            )
+        return None
 
     def _from_usage(self, query: str, allowed_types: list[str], intent: str):
         usage_match = get_direct_usage_match(query, allowed_types, intent)
@@ -100,6 +124,10 @@ class TargetResolver:
         return None
 
     def _resolve_app_candidates(self, query: str):
+        quick_hit = self._from_quick_access(query, ["app"])
+        if quick_hit:
+            return [CandidateWrapper(quick_hit.target_name, quick_hit.target_path, quick_hit.target_type)]
+
         usage_hit = self._from_usage(query, ["app"], "generic_open")
         if usage_hit:
             return [CandidateWrapper(usage_hit.target_name, usage_hit.target_path, usage_hit.target_type)]
@@ -109,31 +137,57 @@ class TargetResolver:
             self._debug_print("app candidates", app_candidates)
         return app_candidates
 
-    def _resolve_file_candidates(self, query: str, generic_mode: bool = False):
+    def _resolve_file_candidates(self, query: str, generic_mode: bool = False, deep_search: bool = False):
+        quick_hit = self._from_quick_access(query, ["file"])
+        if quick_hit:
+            return [CandidateWrapper(quick_hit.target_name, quick_hit.target_path, quick_hit.target_type)]
+
         usage_hit = self._from_usage(query, ["file"], "generic_open")
         if usage_hit:
             return [CandidateWrapper(usage_hit.target_name, usage_hit.target_path, usage_hit.target_type)]
 
-        file_candidates = search_indexed_targets(query, "file", generic_mode=generic_mode)
+        file_candidates = search_indexed_targets(query, "file", generic_mode=generic_mode, deep_search=deep_search)
         if file_candidates:
             self._debug_print("file candidates", file_candidates)
         return file_candidates
 
-    def _resolve_folder_candidates(self, query: str):
+    def _resolve_folder_candidates(self, query: str, deep_search: bool = False):
+        quick_hit = self._from_quick_access(query, ["folder"])
+        if quick_hit:
+            return [CandidateWrapper(quick_hit.target_name, quick_hit.target_path, quick_hit.target_type)]
+
         usage_hit = self._from_usage(query, ["folder"], "generic_open")
         if usage_hit:
             return [CandidateWrapper(usage_hit.target_name, usage_hit.target_path, usage_hit.target_type)]
 
-        folder_candidates = search_indexed_targets(query, "folder", generic_mode=False)
+        folder_candidates = search_indexed_targets(query, "folder", generic_mode=False, deep_search=deep_search)
         if folder_candidates:
             self._debug_print("folder candidates", folder_candidates)
         return folder_candidates
 
-    def resolve(self, command: ParsedCommand) -> ResolvedTarget:
+    def _deep_search_prompt(self):
+        if not SEARCH_MODE_SETTINGS.get("allow_deep_search_after_prompt", True):
+            return ResolvedTarget(success=False, error="Не удалось определить, что именно открыть.")
+
+        return ResolvedTarget(
+            success=False,
+            error="Быстрый поиск не дал результата.",
+            needs_confirmation=True,
+            suggests_deep_search=True,
+            confirmation_message="Быстрый поиск ничего не дал. Выполнить глубокий поиск по системе?"
+        )
+
+    def resolve(self, command: ParsedCommand, deep_search: bool = False) -> ResolvedTarget:
         if command.intent == "negative_feedback":
             return ResolvedTarget(success=False, error="negative_feedback")
 
-        if not command.target_text and command.intent != "negative_feedback":
+        if command.intent == "confirm_deep_search":
+            return ResolvedTarget(success=False, error="confirm_deep_search")
+
+        if command.intent == "reject_deep_search":
+            return ResolvedTarget(success=False, error="reject_deep_search")
+
+        if not command.target_text and command.intent not in {"negative_feedback", "confirm_deep_search", "reject_deep_search"}:
             return ResolvedTarget(success=False, error="Не удалось выделить цель команды.")
 
         explicit_path = detect_explicit_path(command.target_text)
@@ -159,21 +213,26 @@ class TargetResolver:
             return ResolvedTarget(success=False, error=message)
 
         if command.intent == "open_file" or command.intent == "play_media":
-            candidates = self._resolve_file_candidates(command.target_text, generic_mode=False)
+            candidates = self._resolve_file_candidates(command.target_text, generic_mode=False, deep_search=deep_search)
+            if not candidates and not deep_search:
+                return self._deep_search_prompt()
             return self._wrap_result(candidates, "Файл не найден.")
 
         if command.intent == "open_folder":
-            candidates = self._resolve_folder_candidates(command.target_text)
+            candidates = self._resolve_folder_candidates(command.target_text, deep_search=deep_search)
+            if not candidates and not deep_search:
+                return self._deep_search_prompt()
             return self._wrap_result(candidates, "Папка не найдена.")
 
         if command.intent in ["open_app"]:
             candidates = self._resolve_app_candidates(command.target_text)
+            if not candidates and not deep_search:
+                return self._deep_search_prompt()
             return self._wrap_result(candidates, "Не удалось надежно определить приложение.")
 
         if command.intent == "generic_open":
             app_candidates = self._resolve_app_candidates(command.target_text)
 
-            # Если запрос очень общий и кандидатов несколько — лучше уточнить
             target = command.target_text.strip().lower()
             generic_short = len(target.split()) <= 2
 
@@ -190,11 +249,21 @@ class TargetResolver:
             if self._is_good_enough_to_stop(app_candidates):
                 return self._wrap_result(app_candidates, "Не удалось определить, что открыть.")
 
-            file_candidates = self._resolve_file_candidates(command.target_text, generic_mode=True)
+            # Если есть хотя бы один app-кандидат, а команда похожа на запуск приложения,
+            # не даём generic_open сразу проваливаться в технические файлы.
+            if app_candidates:
+                best_app = app_candidates[0]
+                if best_app.score >= 76:
+                    return self._wrap_result(app_candidates, "Не удалось определить, что открыть.")
+
+            file_candidates = self._resolve_file_candidates(command.target_text, generic_mode=True, deep_search=deep_search)
             if self._is_good_enough_to_stop(file_candidates):
                 return self._wrap_result(file_candidates, "Не удалось определить, что открыть.")
 
-            folder_candidates = self._resolve_folder_candidates(command.target_text)
+            folder_candidates = self._resolve_folder_candidates(command.target_text, deep_search=deep_search)
+
+            if self._is_good_enough_to_stop(folder_candidates):
+                return self._wrap_result(folder_candidates, "Не удалось определить, что открыть.")
 
             best_app = app_candidates[0] if app_candidates else None
             best_file = file_candidates[0] if file_candidates else None
@@ -214,6 +283,9 @@ class TargetResolver:
 
             if best_folder:
                 return self._wrap_result(folder_candidates, "Не удалось определить, что открыть.")
+
+            if not deep_search:
+                return self._deep_search_prompt()
 
             return ResolvedTarget(success=False, error="Не удалось определить, что именно открыть.")
 

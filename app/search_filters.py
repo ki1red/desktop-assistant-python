@@ -16,8 +16,12 @@ SAFE_OPEN_FILE_EXTENSIONS = {
 BLOCKED_FILE_EXTENSIONS = {
     "dll", "sys", "res", "pak", "ttf", "ttc", "fon", "mui", "manifest",
     "cmake", "lib", "obj", "o", "pdb", "bin", "dat", "db", "tmp",
-    "exp", "ilk", "pch", "idb", "ipdb", "iobj", "a", "so"
+    "exp", "ilk", "pch", "idb", "ipdb", "iobj", "a", "so", "jar", "class"
 }
+
+
+def _extract_ext_from_path_or_name(value: str) -> str:
+    return Path(value).suffix.lower().replace(".", "")
 
 
 def is_short_junk_name(name: str) -> bool:
@@ -32,10 +36,9 @@ def is_short_junk_name(name: str) -> bool:
     return False
 
 
-def is_bad_generic_file_candidate(file_name: str) -> bool:
-    p = Path(file_name)
-    ext = p.suffix.lower().replace(".", "")
-    stem = normalize_basic(p.stem)
+def is_bad_generic_file_candidate(file_name: str, full_path: str = "") -> bool:
+    stem = normalize_basic(Path(file_name).stem if Path(file_name).suffix else file_name)
+    ext = _extract_ext_from_path_or_name(full_path or file_name)
 
     if is_short_junk_name(stem):
         return True
@@ -46,9 +49,8 @@ def is_bad_generic_file_candidate(file_name: str) -> bool:
     return False
 
 
-def is_safe_user_openable_file(file_name: str) -> bool:
-    p = Path(file_name)
-    ext = p.suffix.lower().replace(".", "")
+def is_safe_user_openable_file(file_name: str, full_path: str = "") -> bool:
+    ext = _extract_ext_from_path_or_name(full_path or file_name)
 
     if ext in BLOCKED_FILE_EXTENSIONS:
         return False

@@ -32,6 +32,14 @@ class CommandParser:
         "ошибка", "неправильно"
     ]
 
+    DEEP_SEARCH_CONFIRM_KEYWORDS = [
+        "да", "ищи", "ищи глубже", "ищи везде", "выполни глубокий поиск", "глубокий поиск"
+    ]
+
+    DEEP_SEARCH_REJECT_KEYWORDS = [
+        "нет", "не ищи", "не надо", "отмена", "не нужно"
+    ]
+
     TARGET_FILLER_WORDS = {
         "приложение", "приложения",
         "программа", "программу", "программы"
@@ -44,6 +52,12 @@ class CommandParser:
 
     def parse(self, text: str) -> ParsedCommand:
         normalized = normalize_command_text(text)
+
+        if normalized in self.DEEP_SEARCH_CONFIRM_KEYWORDS:
+            return ParsedCommand(text, normalized, "confirm_deep_search", "")
+
+        if normalized in self.DEEP_SEARCH_REJECT_KEYWORDS:
+            return ParsedCommand(text, normalized, "reject_deep_search", "")
 
         for phrase in self.NEGATIVE_FEEDBACK_KEYWORDS:
             if normalized == phrase or normalized.startswith(phrase):

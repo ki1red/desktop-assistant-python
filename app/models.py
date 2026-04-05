@@ -34,6 +34,7 @@ class ResolvedTarget:
     error: Optional[str] = None
     needs_confirmation: bool = False
     confirmation_message: Optional[str] = None
+    suggests_deep_search: bool = False
 
 
 @dataclass

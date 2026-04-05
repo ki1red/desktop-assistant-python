@@ -4,10 +4,21 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются.">
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов.">
+      <change afterPath="$PROJECT_DIR$/app/adaptive/quick_access.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/resolver/app_index.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/app_index.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/adaptive/history.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/adaptive/history.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/executor/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/executor/executor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/indexing/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/indexing/db.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/resolver/file_search.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/file_search.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/resolver/resolver.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/resolver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/search_filters.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/search_filters.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/session/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/session/state.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -130,7 +141,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775373163820</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов.">
+      <option name="closed" value="true" />
+      <created>1775376737113</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1775376737113</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -151,6 +170,7 @@
     <MESSAGE value="Обновлена БД" />
     <MESSAGE value="Улучшен поиск.&#10;Из поиска убраны мусорные файлы.&#10;Добавлена система лайков." />
     <MESSAGE value="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются." />
-    <option name="LAST_COMMIT_MESSAGE" value="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются." />
+    <MESSAGE value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
+    <option name="LAST_COMMIT_MESSAGE" value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
   </component>
 </project>

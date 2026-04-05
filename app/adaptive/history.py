@@ -121,8 +121,6 @@ def _simple_similarity(query_text: str, candidate_name: str) -> float:
 
 
 def get_direct_usage_match(query_text: str, allowed_types: list[str], intent: str | None = None):
-    # Для generic_open прямой hit отключаем полностью.
-    # История должна помогать бонусом, но не подсовывать старую ошибку.
     if intent == "generic_open":
         return None
 
@@ -199,33 +197,6 @@ def register_positive_feedback(target_path: str):
     SET open_count = open_count + 1
     WHERE target_path = ?
     """, (target_path,))
-
-    conn.commit()
-    conn.close()
-
-
-def teach_alias(alias: str, target_name: str, target_path: str, target_type: str, intent: str = "generic_open"):
-    alias_norm = normalize_query_text(alias)
-    if not alias_norm or not target_path:
-        return
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-    INSERT OR REPLACE INTO usage_stats
-    (normalized_query, intent, target_name, target_path, target_type, open_count, fail_count, last_used_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        alias_norm,
-        intent,
-        target_name,
-        target_path,
-        target_type,
-        5,
-        0,
-        datetime.utcnow().isoformat()
-    ))
 
     conn.commit()
     conn.close()

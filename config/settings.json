@@ -21,6 +21,11 @@
     "priority_confident_score": 86,
     "usage_direct_open_score": 92
   },
+  "search_modes": {
+    "fast_search_timeout_sec": 1.5,
+    "allow_deep_search_after_prompt": true,
+    "auto_deep_search": false
+  },
   "temp_cleanup": {
     "delete_record_after_transcribe": true,
     "delete_old_temp_on_startup": true,
@@ -52,5 +57,15 @@
   "background": {
     "enabled": true,
     "hotkey": "<ctrl>+<alt>+<space>"
+  },
+  "providers": {
+    "default_music_provider": "yandex_music",
+    "supported_music_providers": [
+      "yandex_music",
+      "vk_music",
+      "spotify",
+      "youtube_music",
+      "youtube"
+    ]
   }
 }

@@ -37,6 +37,14 @@ class CommandExecutor:
                 intent=command.intent
             )
 
+        if command.intent == "reject_deep_search":
+            session_state.clear_pending_deep_search()
+            return ExecutionResult(
+                success=True,
+                message="Глубокий поиск отменён.",
+                intent=command.intent
+            )
+
         if resolved.needs_confirmation:
             self.notifier.notify(AssistantAnnouncement(
                 stage="before_execute",

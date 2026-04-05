@@ -69,18 +69,19 @@ def _score_rows(query: str, rows, generic_mode: bool = False) -> List[Candidate]
 
     for row in rows:
         name = row["name"]
+        full_path = row["path"]
 
         if generic_mode and row["target_type"] == "file":
-            if is_bad_generic_file_candidate(name):
+            if is_bad_generic_file_candidate(name, full_path):
                 continue
-            if not is_safe_user_openable_file(name):
+            if not is_safe_user_openable_file(name, full_path):
                 continue
 
-        score = score_candidate(query, name, row["source_kind"], row["path"])
+        score = score_candidate(query, name, row["source_kind"], full_path)
         if score >= FILE_MATCH_THRESHOLD:
             results.append(Candidate(
                 name=name,
-                path=row["path"],
+                path=full_path,
                 score=score,
                 target_type=row["target_type"]
             ))
@@ -89,7 +90,7 @@ def _score_rows(query: str, rows, generic_mode: bool = False) -> List[Candidate]
     return results[:MAX_CANDIDATES]
 
 
-def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bool = False) -> List[Candidate]:
+def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bool = False, max_found: int = 20) -> List[Candidate]:
     roots = get_priority_roots()
     results = []
 
@@ -110,15 +111,18 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
                                 score=score,
                                 target_type="folder"
                             ))
+                            if len(results) >= max_found:
+                                return sorted(results, key=lambda x: x.score, reverse=True)[:MAX_CANDIDATES]
                 elif wanted_type == "file":
                     for f in files:
+                        full_path = str(Path(root) / f)
+
                         if generic_mode:
-                            if is_bad_generic_file_candidate(f):
+                            if is_bad_generic_file_candidate(f, full_path):
                                 continue
-                            if not is_safe_user_openable_file(f):
+                            if not is_safe_user_openable_file(f, full_path):
                                 continue
 
-                        full_path = str(Path(root) / f)
                         score = score_candidate(query, f, source_kind, full_path)
                         if score >= FILE_MATCH_THRESHOLD:
                             results.append(Candidate(
@@ -127,6 +131,8 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
                                 score=score,
                                 target_type="file"
                             ))
+                            if len(results) >= max_found:
+                                return sorted(results, key=lambda x: x.score, reverse=True)[:MAX_CANDIDATES]
         except (PermissionError, OSError):
             continue
 
@@ -134,19 +140,24 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
     return results[:MAX_CANDIDATES]
 
 
-def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = False) -> List[Candidate]:
+def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = False, deep_search: bool = False) -> List[Candidate]:
     priority_source_kinds = _build_priority_source_kinds()
 
     priority_rows = _fetch_candidates_by_type_prefiltered(
         wanted_type=wanted_type,
         query=query,
         source_kinds=priority_source_kinds,
-        limit=250
+        limit=200 if not deep_search else 350
     )
     priority_results = _score_rows(query, priority_rows, generic_mode=generic_mode)
 
     if priority_results and priority_results[0].score >= PRIORITY_CONFIDENT_SCORE:
         return priority_results
+
+    if not deep_search:
+        if priority_results:
+            return priority_results
+        return _fallback_scan_priority_roots(query, wanted_type, generic_mode=generic_mode, max_found=12)
 
     all_rows = _fetch_candidates_by_type_prefiltered(
         wanted_type=wanted_type,
@@ -159,5 +170,4 @@ def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = Fa
     if all_results:
         return all_results
 
-    # Если индекс ничего не дал — fallback по приоритетным папкам
-    return _fallback_scan_priority_roots(query, wanted_type, generic_mode=generic_mode)
+    return _fallback_scan_priority_roots(query, wanted_type, generic_mode=generic_mode, max_found=30)
