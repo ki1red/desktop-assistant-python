@@ -9,6 +9,14 @@ from app.adaptive.history import get_direct_usage_match
 from app.config import ASSISTANT_SETTINGS, USAGE_DIRECT_OPEN_SCORE
 
 
+class CandidateWrapper:
+    def __init__(self, name, path, target_type):
+        self.name = name
+        self.path = path
+        self.target_type = target_type
+        self.score = 100.0
+
+
 class TargetResolver:
     def _debug_print(self, label: str, candidates):
         if not ASSISTANT_SETTINGS.get("debug_candidates", True):
@@ -29,21 +37,37 @@ class TargetResolver:
 
         second = candidates[1]
 
-        if best.score >= 94:
+        if best.score >= 95:
             return True
 
-        if best.score >= 90 and (best.score - second.score) >= 6:
+        if best.score >= 90 and (best.score - second.score) >= 8:
             return True
 
         return False
 
-    def _wrap_result(self, candidates, not_found_error: str):
+    def _is_good_enough_to_stop(self, candidates):
+        if not candidates:
+            return False
+
+        best = candidates[0]
+
+        if best.score >= 88:
+            return True
+
+        if len(candidates) >= 2 and best.score >= 84:
+            second = candidates[1]
+            if best.score - second.score >= 6:
+                return True
+
+        return False
+
+    def _wrap_result(self, candidates, not_found_error: str, force_confirmation: bool = False):
         if not candidates:
             return ResolvedTarget(success=False, error=not_found_error)
 
         best = candidates[0]
 
-        if self._is_confident_enough(candidates):
+        if not force_confirmation and self._is_confident_enough(candidates):
             return ResolvedTarget(
                 success=True,
                 target_type=best.target_type,
@@ -52,6 +76,7 @@ class TargetResolver:
                 candidates=candidates
             )
 
+        top_names = ", ".join(c.name for c in candidates[:3])
         return ResolvedTarget(
             success=False,
             target_type=best.target_type,
@@ -59,7 +84,7 @@ class TargetResolver:
             target_path=best.path,
             candidates=candidates,
             needs_confirmation=True,
-            confirmation_message=f"Я не совсем уверен. Возможно, ты имел в виду: {best.name}. Открыть это?"
+            confirmation_message=f"Я не совсем уверен. Подходящие варианты: {top_names}"
         )
 
     def _from_usage(self, query: str, allowed_types: list[str], intent: str):
@@ -146,7 +171,28 @@ class TargetResolver:
 
         if command.intent == "generic_open":
             app_candidates = self._resolve_app_candidates(command.target_text)
+
+            # Если запрос очень общий и кандидатов несколько — лучше уточнить
+            target = command.target_text.strip().lower()
+            generic_short = len(target.split()) <= 2
+
+            if app_candidates and generic_short and len(app_candidates) >= 2:
+                top1 = app_candidates[0]
+                top2 = app_candidates[1]
+                if abs(top1.score - top2.score) <= 8:
+                    return self._wrap_result(
+                        app_candidates,
+                        "Не удалось определить, что открыть.",
+                        force_confirmation=True
+                    )
+
+            if self._is_good_enough_to_stop(app_candidates):
+                return self._wrap_result(app_candidates, "Не удалось определить, что открыть.")
+
             file_candidates = self._resolve_file_candidates(command.target_text, generic_mode=True)
+            if self._is_good_enough_to_stop(file_candidates):
+                return self._wrap_result(file_candidates, "Не удалось определить, что открыть.")
+
             folder_candidates = self._resolve_folder_candidates(command.target_text)
 
             best_app = app_candidates[0] if app_candidates else None
@@ -171,11 +217,3 @@ class TargetResolver:
             return ResolvedTarget(success=False, error="Не удалось определить, что именно открыть.")
 
         return ResolvedTarget(success=False, error="Неизвестная команда.")
-
-
-class CandidateWrapper:
-    def __init__(self, name, path, target_type):
-        self.name = name
-        self.path = path
-        self.target_type = target_type
-        self.score = 100.0

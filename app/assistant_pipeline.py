@@ -21,7 +21,12 @@ class AssistantPipeline:
         wav_path = record_audio_to_wav(duration_sec=RECORD_DURATION_SEC)
 
         try:
-            stt_result = self.transcriber.transcribe(wav_path)
+            try:
+                stt_result = self.transcriber.transcribe(wav_path)
+            except Exception as e:
+                print(f"[STT][ERROR] Не удалось распознать аудио: {e}")
+                return None
+
             print(f"[STT] {stt_result.text}")
 
             command = self.parser.parse(stt_result.text)

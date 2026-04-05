@@ -30,6 +30,7 @@ def init_db():
         path TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         normalized_name TEXT NOT NULL,
+        search_blob TEXT,
         target_type TEXT NOT NULL,
         source_kind TEXT NOT NULL,
         parent_path TEXT,
@@ -44,6 +45,7 @@ def init_db():
         intent TEXT,
         target_name TEXT,
         target_path TEXT,
+        target_type TEXT,
         success INTEGER NOT NULL,
         used_at TEXT NOT NULL
     )
@@ -74,7 +76,7 @@ def init_db():
     )
     """)
 
-    # Миграции для старых БД
+    _add_column_if_missing(cur, "filesystem_index", "search_blob", "search_blob TEXT")
     _add_column_if_missing(cur, "usage_history", "target_type", "target_type TEXT")
     _add_column_if_missing(cur, "usage_stats", "target_type", "target_type TEXT")
     _add_column_if_missing(cur, "usage_stats", "fail_count", "fail_count INTEGER NOT NULL DEFAULT 0")

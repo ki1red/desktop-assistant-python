@@ -3,7 +3,7 @@ from pathlib import Path
 
 from app.config import INDEX_BATCH_SIZE
 from app.indexing.db import get_connection, init_db
-from app.text_variants import normalize_basic
+from app.text_variants import normalize_basic, build_search_blob
 from app.utils import get_priority_roots, get_windows_drives
 
 
@@ -32,10 +32,14 @@ def _make_record(path: str, source_kind: str):
     extension = p.suffix.lower().replace(".", "") if p.suffix else ""
     normalized_name = normalize_basic(p.name)
 
+    parent_hint = p.parent.name if p.parent else ""
+    search_blob = build_search_blob(p.name, parent_hint)
+
     return (
         str(p),
         name,
         normalized_name,
+        search_blob,
         target_type,
         source_kind,
         str(p.parent),
@@ -74,8 +78,8 @@ def rebuild_index():
                 if len(buffer) >= INDEX_BATCH_SIZE:
                     cur.executemany("""
                         INSERT OR REPLACE INTO filesystem_index
-                        (path, name, normalized_name, target_type, source_kind, parent_path, extension)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (path, name, normalized_name, search_blob, target_type, source_kind, parent_path, extension)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """, buffer)
                     conn.commit()
                     buffer.clear()
@@ -97,8 +101,8 @@ def rebuild_index():
                 if len(buffer) >= INDEX_BATCH_SIZE:
                     cur.executemany("""
                         INSERT OR REPLACE INTO filesystem_index
-                        (path, name, normalized_name, target_type, source_kind, parent_path, extension)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (path, name, normalized_name, search_blob, target_type, source_kind, parent_path, extension)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """, buffer)
                     conn.commit()
                     buffer.clear()
@@ -109,8 +113,8 @@ def rebuild_index():
     if buffer:
         cur.executemany("""
             INSERT OR REPLACE INTO filesystem_index
-            (path, name, normalized_name, target_type, source_kind, parent_path, extension)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (path, name, normalized_name, search_blob, target_type, source_kind, parent_path, extension)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, buffer)
         conn.commit()
 

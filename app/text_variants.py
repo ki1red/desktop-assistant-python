@@ -20,24 +20,30 @@ EN_TO_RU_SPECIAL = {
     "sh": "ш",
     "sch": "щ",
     "ts": "ц",
+    "th": "т",
+    "ea": "и",
+    "ee": "и",
 }
-
 
 EXTENSION_ALIASES = {
     "pdf": ["pdf", "пдф"],
-    "doc": ["doc", "док"],
-    "docx": ["docx", "докс", "ворд", "word"],
-    "xls": ["xls", "эксель", "excel"],
-    "xlsx": ["xlsx", "эксель", "excel"],
-    "ppt": ["ppt", "паверпойнт", "powerpoint"],
-    "pptx": ["pptx", "паверпойнт", "powerpoint"],
+    "doc": ["doc", "док", "word", "ворд"],
+    "docx": ["docx", "докс", "word", "ворд"],
+    "xls": ["xls", "excel", "эксель"],
+    "xlsx": ["xlsx", "excel", "эксель"],
+    "ppt": ["ppt", "powerpoint", "паверпойнт"],
+    "pptx": ["pptx", "powerpoint", "паверпойнт"],
     "txt": ["txt", "текст"],
-    "mp3": ["mp3", "эмпэтри"],
-    "wav": ["wav", "вейв"],
-    "png": ["png", "пнг"],
+    "mp3": ["mp3"],
+    "wav": ["wav"],
+    "png": ["png"],
     "jpg": ["jpg", "jpeg", "джипег"],
     "py": ["py", "python", "питон"],
+    "lnk": ["shortcut", "ярлык"]
 }
+
+RU_VOWELS = set("аеёиоуыэюя")
+EN_VOWELS = set("aeiouy")
 
 
 def normalize_basic(text: str) -> str:
@@ -46,6 +52,38 @@ def normalize_basic(text: str) -> str:
     text = re.sub(r"[._\-()\[\],!?;:+]+", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def _simplify_russian_word(word: str) -> str:
+    """
+    Очень грубая нормализация окончаний для поискового match.
+    Не лемматизация, а просто срез популярных падежных/числовых хвостов.
+    """
+    if len(word) <= 4:
+        return word
+
+    endings = [
+        "иями", "ями", "ами", "ями",
+        "ого", "ему", "ому", "ыми", "ими",
+        "ия", "ий", "ие", "иям", "иях",
+        "ов", "ев", "ом", "ем", "ам", "ям",
+        "ах", "ях", "ую", "юю",
+        "ой", "ей", "ый", "ий",
+        "а", "я", "у", "ю", "е", "ы", "и", "о"
+    ]
+
+    for ending in endings:
+        if word.endswith(ending) and len(word) - len(ending) >= 4:
+            return word[:-len(ending)]
+
+    return word
+
+
+def normalize_query_text(text: str) -> str:
+    text = normalize_basic(text)
+    tokens = text.split()
+    tokens = [_simplify_russian_word(t) for t in tokens]
+    return normalize_basic(" ".join(tokens))
 
 
 def translit_ru_to_en(text: str) -> str:
@@ -80,24 +118,31 @@ def split_tokens(text: str) -> list[str]:
     return [t for t in normalize_basic(text).split() if t]
 
 
-def build_name_variants(name: str) -> set[str]:
-    """
-    Делает набор вариантов имени:
-    - нормализованная форма
-    - форма без расширения
-    - транслит в обе стороны
-    - расширение как слово
-    """
+def consonant_skeleton(text: str) -> str:
+    text = normalize_basic(text)
+    out = []
+    for ch in text:
+        if ch == " ":
+            out.append(ch)
+            continue
+        if ("а" <= ch <= "я" and ch not in RU_VOWELS) or ("a" <= ch <= "z" and ch not in EN_VOWELS):
+            out.append(ch)
+    return normalize_basic("".join(out))
+
+
+def build_name_variants(name: str, parent_hint: str | None = None) -> set[str]:
     variants = set()
 
     raw = normalize_basic(name)
     if raw:
         variants.add(raw)
+        variants.add(normalize_query_text(raw))
 
     path = Path(name)
     stem = normalize_basic(path.stem)
     if stem:
         variants.add(stem)
+        variants.add(normalize_query_text(stem))
 
     suffix = path.suffix.lower().replace(".", "")
     if suffix:
@@ -105,8 +150,19 @@ def build_name_variants(name: str) -> set[str]:
 
         if stem:
             variants.add(f"{stem} {suffix}")
+            variants.add(normalize_query_text(f"{stem} {suffix}"))
             for alias in suffix_aliases:
                 variants.add(f"{stem} {alias}")
+                variants.add(normalize_query_text(f"{stem} {alias}"))
+
+    if parent_hint:
+        parent_norm = normalize_basic(parent_hint)
+        if parent_norm:
+            variants.add(parent_norm)
+            variants.add(normalize_query_text(parent_norm))
+            if stem:
+                variants.add(f"{parent_norm} {stem}")
+                variants.add(normalize_query_text(f"{parent_norm} {stem}"))
 
     for base in list(variants):
         ru_to_en = normalize_basic(translit_ru_to_en(base))
@@ -117,4 +173,13 @@ def build_name_variants(name: str) -> set[str]:
         if en_to_ru:
             variants.add(en_to_ru)
 
+    for base in list(variants):
+        sk = consonant_skeleton(base)
+        if sk:
+            variants.add(sk)
+
     return {v for v in variants if v.strip()}
+
+
+def build_search_blob(name: str, parent_hint: str | None = None) -> str:
+    return " | ".join(sorted(build_name_variants(name, parent_hint)))

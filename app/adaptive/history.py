@@ -3,7 +3,7 @@ from datetime import datetime
 from rapidfuzz import fuzz
 
 from app.indexing.db import get_connection
-from app.text_variants import normalize_basic, build_name_variants
+from app.text_variants import normalize_basic, build_name_variants, normalize_query_text
 
 
 def init_history_tables():
@@ -27,7 +27,7 @@ def save_usage(query_text: str, intent: str, target_name: str, target_path: str,
         datetime.utcnow().isoformat()
     ))
 
-    normalized_query = normalize_basic(query_text or "")
+    normalized_query = normalize_query_text(query_text or "")
     if normalized_query and target_path:
         cur.execute("""
         SELECT id
@@ -74,7 +74,7 @@ def save_usage(query_text: str, intent: str, target_name: str, target_path: str,
 
 
 def get_usage_bonus(query_text: str, target_path: str) -> float:
-    normalized_query = normalize_basic(query_text or "")
+    normalized_query = normalize_query_text(query_text or "")
     if not normalized_query or not target_path:
         return 0.0
 
@@ -121,7 +121,12 @@ def _simple_similarity(query_text: str, candidate_name: str) -> float:
 
 
 def get_direct_usage_match(query_text: str, allowed_types: list[str], intent: str | None = None):
-    normalized_query = normalize_basic(query_text or "")
+    # Для generic_open прямой hit отключаем полностью.
+    # История должна помогать бонусом, но не подсовывать старую ошибку.
+    if intent == "generic_open":
+        return None
+
+    normalized_query = normalize_query_text(query_text or "")
     if not normalized_query:
         return None
 
@@ -144,14 +149,14 @@ def get_direct_usage_match(query_text: str, allowed_types: list[str], intent: st
     best_score = 0.0
 
     for row in rows:
-        if row["fail_count"] and row["fail_count"] > row["open_count"]:
+        if row["fail_count"] and row["fail_count"] >= row["open_count"]:
             continue
 
         score = _simple_similarity(normalized_query, row["target_name"])
-        score += min((row["open_count"] or 0) * 2.5, 15.0)
+        score += min((row["open_count"] or 0) * 2.0, 10.0)
 
         if intent and row["intent"] == intent:
-            score += 3.0
+            score += 2.0
 
         if score > best_score:
             best_score = score
@@ -200,7 +205,7 @@ def register_positive_feedback(target_path: str):
 
 
 def teach_alias(alias: str, target_name: str, target_path: str, target_type: str, intent: str = "generic_open"):
-    alias_norm = normalize_basic(alias)
+    alias_norm = normalize_query_text(alias)
     if not alias_norm or not target_path:
         return
 
