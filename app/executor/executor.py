@@ -1,4 +1,5 @@
 import os
+import webbrowser
 
 from app.models import ParsedCommand, ResolvedTarget, ExecutionResult
 from app.events.event_models import AssistantAnnouncement
@@ -6,11 +7,13 @@ from app.events.notifier import AssistantNotifier
 from app.config import ASSISTANT_SETTINGS
 from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback
+from app.providers.router import ProviderRouter
 
 
 class CommandExecutor:
     def __init__(self):
         self.notifier = AssistantNotifier()
+        self.provider_router = ProviderRouter()
 
     def execute(self, command: ParsedCommand, resolved: ResolvedTarget) -> ExecutionResult:
         if command.intent == "negative_feedback":
@@ -44,6 +47,27 @@ class CommandExecutor:
                 message="Глубокий поиск отменён.",
                 intent=command.intent
             )
+
+        if command.intent == "search_web":
+            url = self.provider_router.build_default_web_search_url(command.target_text)
+            if not url:
+                return ExecutionResult(success=False, message="Не удалось построить URL для веб-поиска.", intent=command.intent)
+            webbrowser.open(url)
+            return ExecutionResult(success=True, message=f"Открыт веб-поиск: {command.target_text}", intent=command.intent, target_path=url)
+
+        if command.intent == "search_youtube":
+            url = self.provider_router.build_default_youtube_url(command.target_text)
+            if not url:
+                return ExecutionResult(success=False, message="Не удалось построить URL для YouTube.", intent=command.intent)
+            webbrowser.open(url)
+            return ExecutionResult(success=True, message=f"Открыт YouTube поиск: {command.target_text}", intent=command.intent, target_path=url)
+
+        if command.intent == "play_music_query":
+            url = self.provider_router.build_default_music_url(command.target_text)
+            if not url:
+                return ExecutionResult(success=False, message="Не удалось построить URL для музыки.", intent=command.intent)
+            webbrowser.open(url)
+            return ExecutionResult(success=True, message=f"Открыт поиск музыки: {command.target_text}", intent=command.intent, target_path=url)
 
         if resolved.needs_confirmation:
             self.notifier.notify(AssistantAnnouncement(

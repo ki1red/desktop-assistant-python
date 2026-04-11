@@ -5,16 +5,19 @@ from app.assistant_pipeline import AssistantPipeline
 from app.config import BACKGROUND_SETTINGS
 from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback, register_positive_feedback
+from app.events.notifier import AssistantNotifier
 
 
 def run_background_mode():
     pipeline = AssistantPipeline()
+    notifier = AssistantNotifier()
     hotkey = BACKGROUND_SETTINGS.get("hotkey", "<ctrl>+<alt>+<space>")
     busy_lock = threading.Lock()
 
     def on_activate():
         if busy_lock.locked():
             print("[BG] Ассистент уже обрабатывает предыдущую команду.")
+            notifier.say("Я ещё работаю.")
             return
 
         def worker():
@@ -24,6 +27,7 @@ def run_background_mode():
                     pipeline.run_once()
                 except Exception as e:
                     print(f"[BG][ERROR] Ошибка во время выполнения команды: {e}")
+                    notifier.say("Произошла ошибка во время выполнения команды.")
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -32,16 +36,20 @@ def run_background_mode():
         if last and last.target_path:
             register_positive_feedback(last.target_path)
             print(f"[BG] Лайк сохранён: {last.target_name}")
+            notifier.say_random("like")
         else:
             print("[BG] Нет последней команды для лайка.")
+            notifier.say("Нет последней команды для лайка.")
 
     def on_dislike():
         last = session_state.last_resolved
         if last and last.target_path:
             register_negative_feedback(last.target_path)
             print(f"[BG] Дизлайк сохранён: {last.target_name}")
+            notifier.say_random("dislike")
         else:
             print("[BG] Нет последней команды для дизлайка.")
+            notifier.say("Нет последней команды для дизлайка.")
 
     try:
         open_hotkey = keyboard.HotKey(

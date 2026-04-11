@@ -5,7 +5,8 @@ from app.config_loader import ConfigLoader
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-_config = ConfigLoader().get()
+_loader = ConfigLoader()
+_config = _loader.get()
 
 TEMP_DIR = BASE_DIR / _config["paths"]["temp_dir"]
 TEMP_DIR.mkdir(exist_ok=True)
@@ -35,3 +36,18 @@ ASSISTANT_SETTINGS = _config["assistant"]
 PRIORITY_ROOTS_CONFIG = _config["priority_roots"]
 BACKGROUND_SETTINGS = _config["background"]
 PROVIDER_SETTINGS = _config["providers"]
+VOICE_SETTINGS = _config["voice"]
+
+
+def reload_config():
+    global _config, SEARCH_MODE_SETTINGS, TEMP_CLEANUP_SETTINGS, ASSISTANT_SETTINGS
+    global PRIORITY_ROOTS_CONFIG, BACKGROUND_SETTINGS, PROVIDER_SETTINGS, VOICE_SETTINGS
+
+    _config = ConfigLoader().get()
+    SEARCH_MODE_SETTINGS = _config["search_modes"]
+    TEMP_CLEANUP_SETTINGS = _config["temp_cleanup"]
+    ASSISTANT_SETTINGS = _config["assistant"]
+    PRIORITY_ROOTS_CONFIG = _config["priority_roots"]
+    BACKGROUND_SETTINGS = _config["background"]
+    PROVIDER_SETTINGS = _config["providers"]
+    VOICE_SETTINGS = _config["voice"]

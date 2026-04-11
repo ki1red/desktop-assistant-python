@@ -81,6 +81,33 @@ def init_db():
     """)
 
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS user_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS provider_routes (
+        provider_key TEXT PRIMARY KEY,
+        provider_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        url_template TEXT NOT NULL,
+        is_enabled INTEGER NOT NULL DEFAULT 1
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS custom_commands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        phrase TEXT NOT NULL UNIQUE,
+        command_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        is_enabled INTEGER NOT NULL DEFAULT 1
+    )
+    """)
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS user_aliases (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         alias TEXT NOT NULL UNIQUE,
@@ -103,7 +130,33 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_usage_stats_query ON usage_stats(normalized_query)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_quick_name ON quick_access_targets(normalized_name)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_quick_type ON quick_access_targets(target_type)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_custom_phrase ON custom_commands(phrase)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_alias_alias ON user_aliases(alias)")
+
+    # Базовые provider routes
+    default_routes = [
+        ("browser_google", "web_search", "Google Search", "https://www.google.com/search?q={query}", 1),
+        ("youtube_search", "youtube_search", "YouTube Search", "https://www.youtube.com/results?search_query={query}", 1),
+        ("yandex_music", "music_search", "Yandex Music", "https://music.yandex.ru/search?text={query}", 1),
+        ("spotify", "music_search", "Spotify", "https://open.spotify.com/search/{query}", 1),
+        ("youtube_music", "music_search", "YouTube Music", "https://music.youtube.com/search?q={query}", 1),
+        ("vk_music", "music_search", "VK Music", "https://vk.com/audio?q={query}", 1),
+    ]
+    cur.executemany("""
+    INSERT OR IGNORE INTO provider_routes (provider_key, provider_type, title, url_template, is_enabled)
+    VALUES (?, ?, ?, ?, ?)
+    """, default_routes)
+
+    # Базовые user settings
+    default_settings = [
+        ("default_music_provider", "yandex_music"),
+        ("default_web_search_provider", "browser_google"),
+        ("default_youtube_provider", "youtube_search")
+    ]
+    cur.executemany("""
+    INSERT OR IGNORE INTO user_settings (key, value)
+    VALUES (?, ?)
+    """, default_settings)
 
     conn.commit()
     conn.close()

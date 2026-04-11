@@ -5,6 +5,7 @@ class SessionState:
         self.last_execution = None
         self.pending_deep_search_command = None
         self.pending_candidates = None
+        self.pending_selection_command = None
 
     def remember(self, command, resolved, execution):
         self.last_command = command
@@ -17,10 +18,12 @@ class SessionState:
     def clear_pending_deep_search(self):
         self.pending_deep_search_command = None
 
-    def set_pending_candidates(self, candidates):
+    def set_pending_candidates(self, command, candidates):
+        self.pending_selection_command = command
         self.pending_candidates = candidates
 
     def clear_pending_candidates(self):
+        self.pending_selection_command = None
         self.pending_candidates = None
 
 

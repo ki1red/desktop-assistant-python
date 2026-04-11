@@ -11,11 +11,11 @@ from app.config import ASSISTANT_SETTINGS, USAGE_DIRECT_OPEN_SCORE, SEARCH_MODE_
 
 
 class CandidateWrapper:
-    def __init__(self, name, path, target_type):
+    def __init__(self, name, path, target_type, score=100.0):
         self.name = name
         self.path = path
         self.target_type = target_type
-        self.score = 100.0
+        self.score = score
 
 
 class TargetResolver:
@@ -64,13 +64,19 @@ class TargetResolver:
 
         return False
 
+    def _confirmation_message(self, candidates):
+        numbered = []
+        for i, c in enumerate(candidates[:3], start=1):
+            numbered.append(f"{i}. {c.name}")
+        joined = ", ".join(numbered)
+        return f"Я не совсем уверен. Подходящие варианты: {joined}. Скажи: первый, второй, третий, да или нет."
+
     def _wrap_result(self, candidates, not_found_error: str, force_confirmation: bool = False):
         if not candidates:
             return ResolvedTarget(success=False, error=not_found_error)
 
         best = candidates[0]
 
-        # Один нормальный кандидат-приложение можно открывать смелее
         if not force_confirmation:
             if len(candidates) == 1 and best.target_type == "app" and best.score >= 76:
                 return ResolvedTarget(
@@ -90,7 +96,6 @@ class TargetResolver:
                     candidates=candidates
                 )
 
-        top_names = ", ".join(c.name for c in candidates[:3])
         return ResolvedTarget(
             success=False,
             target_type=best.target_type,
@@ -98,7 +103,7 @@ class TargetResolver:
             target_path=best.path,
             candidates=candidates,
             needs_confirmation=True,
-            confirmation_message=f"Я не совсем уверен. Подходящие варианты: {top_names}"
+            confirmation_message=self._confirmation_message(candidates)
         )
 
     def _from_quick_access(self, query: str, allowed_types: list[str]):
@@ -187,7 +192,10 @@ class TargetResolver:
         if command.intent == "reject_deep_search":
             return ResolvedTarget(success=False, error="reject_deep_search")
 
-        if not command.target_text and command.intent not in {"negative_feedback", "confirm_deep_search", "reject_deep_search"}:
+        if command.intent == "select_candidate":
+            return ResolvedTarget(success=False, error="select_candidate")
+
+        if not command.target_text and command.intent not in {"negative_feedback", "confirm_deep_search", "reject_deep_search", "select_candidate"}:
             return ResolvedTarget(success=False, error="Не удалось выделить цель команды.")
 
         explicit_path = detect_explicit_path(command.target_text)
@@ -249,8 +257,6 @@ class TargetResolver:
             if self._is_good_enough_to_stop(app_candidates):
                 return self._wrap_result(app_candidates, "Не удалось определить, что открыть.")
 
-            # Если есть хотя бы один app-кандидат, а команда похожа на запуск приложения,
-            # не даём generic_open сразу проваливаться в технические файлы.
             if app_candidates:
                 best_app = app_candidates[0]
                 if best_app.score >= 76:

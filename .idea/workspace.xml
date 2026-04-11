@@ -4,21 +4,27 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов.">
-      <change afterPath="$PROJECT_DIR$/app/adaptive/quick_access.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты">
+      <change afterPath="$PROJECT_DIR$/app/adaptive/quick_access_admin.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/assistant_progress.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/providers/provider_admin.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/providers/router.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/settings_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/voice/speaker.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/desktop_app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/adaptive/history.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/adaptive/history.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/background_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/background_runner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config_loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/events/notifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/events/notifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/executor/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/executor/executor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/indexing/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/indexing/db.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/models.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/resolver/file_search.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/file_search.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/resolver/resolver.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/resolver.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/search_filters.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/search_filters.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/session/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/session/state.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,22 +68,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.app_index.executor&quot;: &quot;Run&quot;,
-    &quot;Python.build_index.executor&quot;: &quot;Run&quot;,
-    &quot;Python.debug_apps.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.resolver.executor&quot;: &quot;Run&quot;,
-    &quot;Python.run_background.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.app_index.executor": "Run",
+    "Python.build_index.executor": "Run",
+    "Python.debug_apps.executor": "Run",
+    "Python.desktop_app.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.resolver.executor": "Run",
+    "Python.run_background.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "settings.editor.selected.configurable": "vcs.Git"
   }
-}</component>
+}]]></component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -149,7 +156,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775376737113</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты">
+      <option name="closed" value="true" />
+      <created>1775379204893</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1775379204893</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -171,6 +186,7 @@
     <MESSAGE value="Улучшен поиск.&#10;Из поиска убраны мусорные файлы.&#10;Добавлена система лайков." />
     <MESSAGE value="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются." />
     <MESSAGE value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
-    <option name="LAST_COMMIT_MESSAGE" value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
+    <MESSAGE value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
+    <option name="LAST_COMMIT_MESSAGE" value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
   </component>
 </project>

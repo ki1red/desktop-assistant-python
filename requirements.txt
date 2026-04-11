@@ -4,3 +4,4 @@ soundfile
 numpy
 RapidFuzz
 pynput
+pyttsx3

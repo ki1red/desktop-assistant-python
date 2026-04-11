@@ -19,6 +19,14 @@ class CommandParser:
         "воспроизведи"
     ]
 
+    WEB_SEARCH_KEYWORDS = [
+        "найди в браузере", "поиск в браузере", "найди в интернете", "найди в гугле"
+    ]
+
+    YOUTUBE_SEARCH_KEYWORDS = [
+        "найди на ютубе", "найди в ютубе", "поиск на ютубе", "открой на ютубе"
+    ]
+
     GENERIC_OPEN_KEYWORDS = [
         "открой", "открыть", "открою",
         "запусти", "запустить", "запущу",
@@ -40,6 +48,12 @@ class CommandParser:
         "нет", "не ищи", "не надо", "отмена", "не нужно"
     ]
 
+    SELECTION_KEYWORDS = {
+        "первый": 1, "первая": 1, "1": 1, "один": 1,
+        "второй": 2, "вторая": 2, "2": 2, "два": 2,
+        "третий": 3, "третья": 3, "3": 3, "три": 3,
+    }
+
     TARGET_FILLER_WORDS = {
         "приложение", "приложения",
         "программа", "программу", "программы"
@@ -53,6 +67,9 @@ class CommandParser:
     def parse(self, text: str) -> ParsedCommand:
         normalized = normalize_command_text(text)
 
+        if normalized in self.SELECTION_KEYWORDS:
+            return ParsedCommand(text, normalized, "select_candidate", str(self.SELECTION_KEYWORDS[normalized]))
+
         if normalized in self.DEEP_SEARCH_CONFIRM_KEYWORDS:
             return ParsedCommand(text, normalized, "confirm_deep_search", "")
 
@@ -62,6 +79,16 @@ class CommandParser:
         for phrase in self.NEGATIVE_FEEDBACK_KEYWORDS:
             if normalized == phrase or normalized.startswith(phrase):
                 return ParsedCommand(text, normalized, "negative_feedback", "")
+
+        for prefix in self.WEB_SEARCH_KEYWORDS:
+            if normalized.startswith(prefix):
+                target = normalized.replace(prefix, "", 1).strip()
+                return ParsedCommand(text, normalized, "search_web", target)
+
+        for prefix in self.YOUTUBE_SEARCH_KEYWORDS:
+            if normalized.startswith(prefix):
+                target = normalized.replace(prefix, "", 1).strip()
+                return ParsedCommand(text, normalized, "search_youtube", target)
 
         for prefix in self.OPEN_FILE_KEYWORDS:
             if normalized.startswith(prefix):
@@ -79,7 +106,7 @@ class CommandParser:
             if normalized.startswith(prefix):
                 target = normalized.replace(prefix, "", 1).strip()
                 target = self._cleanup_target(target)
-                return ParsedCommand(text, normalized, "play_media", target)
+                return ParsedCommand(text, normalized, "play_music_query", target)
 
         for prefix in self.GENERIC_OPEN_KEYWORDS:
             if normalized.startswith(prefix):
