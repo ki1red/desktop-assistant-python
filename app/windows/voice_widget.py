@@ -3,14 +3,13 @@ from PySide6.QtWidgets import (
     QCheckBox, QPushButton, QMessageBox
 )
 
-from app.config_loader import ConfigLoader
+from app.settings_service import settings_service
 
 
 class VoiceSettingsWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.loader = ConfigLoader()
-        self.config = self.loader.get()
+        self.config = settings_service.get_all()
         self._build_ui()
 
     def _build_ui(self):
@@ -38,10 +37,11 @@ class VoiceSettingsWidget(QWidget):
         layout.addWidget(self.save_btn)
 
     def save_settings(self):
-        self.config["voice"]["enabled"] = self.enabled_checkbox.isChecked()
-        self.config["voice"]["rate"] = int(self.rate_edit.text().strip())
-        self.config["voice"]["volume"] = float(self.volume_edit.text().strip())
-        self.config["voice"]["heartbeat_interval_sec"] = int(self.heartbeat_edit.text().strip())
+        def mutator(cfg: dict):
+            cfg["voice"]["enabled"] = self.enabled_checkbox.isChecked()
+            cfg["voice"]["rate"] = int(self.rate_edit.text().strip())
+            cfg["voice"]["volume"] = float(self.volume_edit.text().strip())
+            cfg["voice"]["heartbeat_interval_sec"] = int(self.heartbeat_edit.text().strip())
 
-        self.loader.save(self.config)
-        QMessageBox.information(self, "Готово", "Настройки голоса сохранены.\nДля полного применения перезапусти приложение.")
+        settings_service.update(mutator)
+        QMessageBox.information(self, "Готово", "Голосовые настройки сохранены и применены.")

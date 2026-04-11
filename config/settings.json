@@ -74,7 +74,7 @@
     ]
   },
   "voice": {
-    "enabled": true,
+    "enabled": false,
     "rate": 185,
     "volume": 1.0,
     "heartbeat_interval_sec": 8,

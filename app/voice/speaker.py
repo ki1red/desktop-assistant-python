@@ -4,7 +4,7 @@ import random
 import subprocess
 import threading
 
-from app.config import VOICE_SETTINGS
+from app.settings_service import settings_service
 from app.logger import get_logger
 
 
@@ -13,16 +13,32 @@ logger = get_logger("voice")
 
 class VoiceSpeaker:
     def __init__(self):
-        self.enabled = VOICE_SETTINGS.get("enabled", True)
-        self.rate = VOICE_SETTINGS.get("rate", 185)
-        self.volume = VOICE_SETTINGS.get("volume", 1.0)
-
         self._queue = queue.Queue()
         self._thread = None
         self._started = False
 
+        self.enabled = True
+        self.rate = 185
+        self.volume = 1.0
+
+        self._apply_config(settings_service.get_all())
+        settings_service.subscribe(self._on_settings_changed)
+
         if self.enabled:
             self._start_worker()
+
+    def _on_settings_changed(self, config_snapshot: dict):
+        self._apply_config(config_snapshot)
+        logger.info(
+            "Голосовые настройки обновлены: enabled=%s rate=%s volume=%s",
+            self.enabled, self.rate, self.volume
+        )
+
+    def _apply_config(self, config_snapshot: dict):
+        voice = config_snapshot.get("voice", {})
+        self.enabled = voice.get("enabled", True)
+        self.rate = voice.get("rate", 185)
+        self.volume = voice.get("volume", 1.0)
 
     def _start_worker(self):
         if self._started:
@@ -78,6 +94,9 @@ $synth.Speak('{escaped}');
             if not text:
                 continue
 
+            if not self.enabled:
+                continue
+
             logger.info("[VOICE] %s", text)
             print(f"[VOICE] {text}")
 
@@ -108,7 +127,7 @@ $synth.Speak('{escaped}');
         if not self.enabled:
             return
 
-        phrases = VOICE_SETTINGS.get("phrases", {}).get(group_name, [])
+        phrases = settings_service.get_section("voice", {}).get("phrases", {}).get(group_name, [])
         if not phrases:
             return
 
@@ -118,7 +137,7 @@ $synth.Speak('{escaped}');
         if not self.enabled:
             return
 
-        phrases = VOICE_SETTINGS.get("phrases", {}).get(group_name, [])
+        phrases = settings_service.get_section("voice", {}).get("phrases", {}).get(group_name, [])
         if not phrases:
             return
 

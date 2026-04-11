@@ -3,14 +3,13 @@ from PySide6.QtWidgets import (
     QListWidget, QLineEdit, QMessageBox, QLabel
 )
 
-from app.config_loader import ConfigLoader
+from app.settings_service import settings_service
 
 
 class PathsWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.loader = ConfigLoader()
-        self.config = self.loader.get()
+        self.config = settings_service.get_all()
         self._build_ui()
         self.refresh()
 
@@ -41,6 +40,7 @@ class PathsWidget(QWidget):
 
     def refresh(self):
         self.list_widget.clear()
+        self.config = settings_service.get_all()
         for path in self.config["priority_roots"].get("extra_paths", []):
             self.list_widget.addItem(path)
 
@@ -58,6 +58,13 @@ class PathsWidget(QWidget):
 
     def save_paths(self):
         paths = [self.list_widget.item(i).text() for i in range(self.list_widget.count())]
-        self.config["priority_roots"]["extra_paths"] = paths
-        self.loader.save(self.config)
-        QMessageBox.information(self, "Готово", "Папки сохранены.\nДля обновления индекса запусти перестроение.")
+
+        def mutator(cfg: dict):
+            cfg["priority_roots"]["extra_paths"] = paths
+
+        settings_service.update(mutator)
+        QMessageBox.information(
+            self,
+            "Готово",
+            "Папки сохранены и будут использоваться в новых запросах.\nДля полной переиндексации при необходимости запусти перестроение."
+        )
