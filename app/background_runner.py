@@ -14,6 +14,13 @@ def run_background_mode():
     hotkey = BACKGROUND_SETTINGS.get("hotkey", "<ctrl>+<alt>+<space>")
     busy_lock = threading.Lock()
 
+    def _beep():
+        try:
+            import winsound
+            winsound.Beep(1200, 120)
+        except Exception:
+            pass
+
     def on_activate():
         if busy_lock.locked():
             print("[BG] Ассистент уже обрабатывает предыдущую команду.")
@@ -23,6 +30,7 @@ def run_background_mode():
         def worker():
             with busy_lock:
                 print("[BG] Горячая клавиша нажата. Слушаю команду...")
+                _beep()
                 try:
                     pipeline.run_once()
                 except Exception as e:

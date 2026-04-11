@@ -59,7 +59,6 @@ class AssistantPipeline:
                     provider="local",
                     increment_usage=True
                 )
-                self.notifier.say_random("done")
 
             session_state.remember(command, resolved, execution)
             return execution
@@ -112,7 +111,6 @@ class AssistantPipeline:
                 provider="local",
                 increment_usage=True
             )
-            self.notifier.say_random("done")
 
         session_state.clear_pending_candidates()
         session_state.clear_pending_deep_search()
@@ -121,7 +119,7 @@ class AssistantPipeline:
 
     def run_once(self):
         print("[PIPELINE] Начало цикла обработки команды.")
-        self.notifier.say_random("listening")
+        # ВАЖНО: перед записью голос не говорим, чтобы не ухудшать STT
         wav_path = record_audio_to_wav(duration_sec=RECORD_DURATION_SEC)
 
         try:

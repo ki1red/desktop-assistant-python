@@ -64,6 +64,19 @@ class CommandParser:
         tokens = [t for t in tokens if t not in self.TARGET_FILLER_WORDS]
         return " ".join(tokens).strip()
 
+    def _fallback_intent(self, normalized: str) -> ParsedCommand:
+        words = normalized.split()
+
+        # Одно-два слова без глагола — вероятнее всего запуск объекта
+        if 1 <= len(words) <= 3:
+            return ParsedCommand(normalized, normalized, "generic_open", normalized)
+
+        # 3-6 слов без явного глагола — скорее поисковый запрос
+        if 3 <= len(words) <= 6:
+            return ParsedCommand(normalized, normalized, "search_web", normalized)
+
+        return ParsedCommand(normalized, normalized, "unknown", normalized)
+
     def parse(self, text: str) -> ParsedCommand:
         normalized = normalize_command_text(text)
 
@@ -114,4 +127,4 @@ class CommandParser:
                 target = self._cleanup_target(target)
                 return ParsedCommand(text, normalized, "generic_open", target)
 
-        return ParsedCommand(text, normalized, "unknown", normalized)
+        return self._fallback_intent(normalized)

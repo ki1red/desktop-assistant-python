@@ -10,5 +10,11 @@ class AssistantNotifier:
     def say_random(self, group_name: str):
         speaker.say_random(group_name)
 
+    def say_random_sync(self, group_name: str):
+        speaker.say_random_sync(group_name)
+
     def say(self, text: str):
         speaker.say(text)
+
+    def say_sync(self, text: str):
+        speaker.say_sync(text)

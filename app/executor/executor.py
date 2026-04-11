@@ -20,9 +20,10 @@ class CommandExecutor:
             last_resolved = session_state.last_resolved
             if last_resolved and last_resolved.target_path:
                 register_negative_feedback(last_resolved.target_path)
+                message = f"Понял. Отмечу, что прошлый выбор был ошибочным: {last_resolved.target_name}"
                 self.notifier.notify(AssistantAnnouncement(
                     stage="after_execute",
-                    text=f"Понял. Отмечу, что прошлый выбор был ошибочным: {last_resolved.target_name}",
+                    text=message,
                     intent=command.intent,
                     target_name=last_resolved.target_name,
                     target_path=last_resolved.target_path
@@ -42,6 +43,7 @@ class CommandExecutor:
 
         if command.intent == "reject_deep_search":
             session_state.clear_pending_deep_search()
+            self.notifier.say("Глубокий поиск отменён.")
             return ExecutionResult(
                 success=True,
                 message="Глубокий поиск отменён.",
@@ -51,22 +53,34 @@ class CommandExecutor:
         if command.intent == "search_web":
             url = self.provider_router.build_default_web_search_url(command.target_text)
             if not url:
+                self.notifier.say("Не удалось построить ссылку для веб-поиска.")
                 return ExecutionResult(success=False, message="Не удалось построить URL для веб-поиска.", intent=command.intent)
+
+            self.notifier.say(f"Открываю поиск в браузере: {command.target_text}")
             webbrowser.open(url)
+            self.notifier.say_random("done")
             return ExecutionResult(success=True, message=f"Открыт веб-поиск: {command.target_text}", intent=command.intent, target_path=url)
 
         if command.intent == "search_youtube":
             url = self.provider_router.build_default_youtube_url(command.target_text)
             if not url:
+                self.notifier.say("Не удалось построить ссылку для YouTube.")
                 return ExecutionResult(success=False, message="Не удалось построить URL для YouTube.", intent=command.intent)
+
+            self.notifier.say(f"Открываю поиск на Ютубе: {command.target_text}")
             webbrowser.open(url)
+            self.notifier.say_random("done")
             return ExecutionResult(success=True, message=f"Открыт YouTube поиск: {command.target_text}", intent=command.intent, target_path=url)
 
         if command.intent == "play_music_query":
             url = self.provider_router.build_default_music_url(command.target_text)
             if not url:
+                self.notifier.say("Не удалось построить ссылку для музыки.")
                 return ExecutionResult(success=False, message="Не удалось построить URL для музыки.", intent=command.intent)
+
+            self.notifier.say(f"Открываю поиск музыки: {command.target_text}")
             webbrowser.open(url)
+            self.notifier.say_random("done")
             return ExecutionResult(success=True, message=f"Открыт поиск музыки: {command.target_text}", intent=command.intent, target_path=url)
 
         if resolved.needs_confirmation:
@@ -108,10 +122,11 @@ class CommandExecutor:
         try:
             os.startfile(resolved.target_path)
 
+            success_text = f"Команда выполнена успешно: {resolved.target_name}"
             if ASSISTANT_SETTINGS.get("announce_after_execution", True):
                 self.notifier.notify(AssistantAnnouncement(
                     stage="after_execute",
-                    text=f"Команда выполнена успешно: {resolved.target_name}",
+                    text=success_text,
                     intent=command.intent,
                     target_name=resolved.target_name,
                     target_path=resolved.target_path

@@ -4,27 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты">
-      <change afterPath="$PROJECT_DIR$/app/adaptive/quick_access_admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/assistant_progress.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/providers/provider_admin.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/providers/router.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/settings_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/voice/speaker.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/desktop_app.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/background_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/background_runner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/config_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config_loader.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/events/notifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/events/notifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/executor/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/executor/executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/indexing/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/indexing/db.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/resolver/resolver.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/resolver.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/session/state.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/session/state.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/voice/speaker.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/voice/speaker.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -164,7 +151,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775379204893</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)">
+      <option name="closed" value="true" />
+      <created>1775896771877</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1775896771877</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -187,6 +182,7 @@
     <MESSAGE value="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются." />
     <MESSAGE value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
     <MESSAGE value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
-    <option name="LAST_COMMIT_MESSAGE" value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
+    <MESSAGE value="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)" />
   </component>
 </project>
