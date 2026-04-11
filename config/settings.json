@@ -7,7 +7,16 @@
   "audio": {
     "sample_rate": 16000,
     "channels": 1,
-    "record_duration_sec": 5
+    "chunk_size": 1024,
+    "max_record_seconds": 12,
+    "min_record_seconds": 0.8,
+    "silence_duration_stop_sec": 1.0,
+    "silence_threshold": 500
+  },
+  "background": {
+    "enabled": true,
+    "hotkey": "<ctrl>+<alt>+<space>",
+    "double_press_cancels": true
   },
   "speech": {
     "whisper_model_size": "small",
@@ -53,10 +62,6 @@
     "announce_before_execution": true,
     "announce_after_execution": true,
     "debug_candidates": true
-  },
-  "background": {
-    "enabled": true,
-    "hotkey": "<ctrl>+<alt>+<space>"
   },
   "providers": {
     "default_music_provider": "yandex_music",

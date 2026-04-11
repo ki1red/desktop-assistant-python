@@ -9,7 +9,7 @@ from app.config import FILE_MATCH_THRESHOLD, MAX_CANDIDATES, PRIORITY_CONFIDENT_
 from app.utils import get_priority_roots
 from app.text_variants import build_name_variants, normalize_basic
 from app.search_filters import is_bad_generic_file_candidate, is_safe_user_openable_file
-
+from app.runtime_control import runtime_control
 
 def _build_priority_source_kinds() -> set[str]:
     keys = set(get_priority_roots().keys())
@@ -68,6 +68,10 @@ def _score_rows(query: str, rows, generic_mode: bool = False) -> List[Candidate]
     results = []
 
     for row in rows:
+        if runtime_control.is_cancelled():
+            print("[SEARCH] Поиск отменён пользователем.")
+            return []
+
         name = row["name"]
         full_path = row["path"]
 
@@ -95,13 +99,25 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
     results = []
 
     for source_kind, root_path in roots.items():
+        if runtime_control.is_cancelled():
+            print("[SEARCH] Поиск отменён пользователем.")
+            return []
+
         if not root_path or not os.path.exists(root_path):
             continue
 
         try:
             for root, dirs, files in os.walk(root_path):
+                if runtime_control.is_cancelled():
+                    print("[SEARCH] Поиск отменён пользователем.")
+                    return []
+
                 if wanted_type == "folder":
                     for d in dirs:
+                        if runtime_control.is_cancelled():
+                            print("[SEARCH] Поиск отменён пользователем.")
+                            return []
+
                         full_path = str(Path(root) / d)
                         score = score_candidate(query, d, source_kind, full_path)
                         if score >= FILE_MATCH_THRESHOLD:
@@ -113,8 +129,13 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
                             ))
                             if len(results) >= max_found:
                                 return sorted(results, key=lambda x: x.score, reverse=True)[:MAX_CANDIDATES]
+
                 elif wanted_type == "file":
                     for f in files:
+                        if runtime_control.is_cancelled():
+                            print("[SEARCH] Поиск отменён пользователем.")
+                            return []
+
                         full_path = str(Path(root) / f)
 
                         if generic_mode:
@@ -141,6 +162,10 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
 
 
 def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = False, deep_search: bool = False) -> List[Candidate]:
+    if runtime_control.is_cancelled():
+        print("[SEARCH] Поиск отменён пользователем.")
+        return []
+
     priority_source_kinds = _build_priority_source_kinds()
 
     priority_rows = _fetch_candidates_by_type_prefiltered(
@@ -150,6 +175,10 @@ def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = Fa
         limit=200 if not deep_search else 350
     )
     priority_results = _score_rows(query, priority_rows, generic_mode=generic_mode)
+
+    if runtime_control.is_cancelled():
+        print("[SEARCH] Поиск отменён пользователем.")
+        return []
 
     if priority_results and priority_results[0].score >= PRIORITY_CONFIDENT_SCORE:
         return priority_results
@@ -166,6 +195,10 @@ def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = Fa
         limit=500
     )
     all_results = _score_rows(query, all_rows, generic_mode=generic_mode)
+
+    if runtime_control.is_cancelled():
+        print("[SEARCH] Поиск отменён пользователем.")
+        return []
 
     if all_results:
         return all_results

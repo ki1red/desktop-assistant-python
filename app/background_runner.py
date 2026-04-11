@@ -6,13 +6,14 @@ from app.config import BACKGROUND_SETTINGS
 from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback, register_positive_feedback
 from app.events.notifier import AssistantNotifier
+from app.runtime_control import runtime_control
 
 
 def run_background_mode():
     pipeline = AssistantPipeline()
     notifier = AssistantNotifier()
     hotkey = BACKGROUND_SETTINGS.get("hotkey", "<ctrl>+<alt>+<space>")
-    busy_lock = threading.Lock()
+    cancel_on_second_press = BACKGROUND_SETTINGS.get("double_press_cancels", True)
 
     def _beep():
         try:
@@ -22,20 +23,28 @@ def run_background_mode():
             pass
 
     def on_activate():
-        if busy_lock.locked():
-            print("[BG] Ассистент уже обрабатывает предыдущую команду.")
-            notifier.say("Я ещё работаю.")
+        if runtime_control.is_busy():
+            if cancel_on_second_press:
+                runtime_control.cancel_job()
+                if runtime_control.mark_cancel_announced():
+                    print("[BG] Запрошена отмена текущей операции.")
+                    notifier.say("Отменяю текущую операцию.")
+            else:
+                print("[BG] Ассистент уже обрабатывает предыдущую команду.")
+                notifier.say("Я ещё работаю.")
             return
 
         def worker():
-            with busy_lock:
+            runtime_control.start_job()
+            try:
                 print("[BG] Горячая клавиша нажата. Слушаю команду...")
                 _beep()
-                try:
-                    pipeline.run_once()
-                except Exception as e:
-                    print(f"[BG][ERROR] Ошибка во время выполнения команды: {e}")
-                    notifier.say("Произошла ошибка во время выполнения команды.")
+                pipeline.run_once()
+            except Exception as e:
+                print(f"[BG][ERROR] Ошибка во время выполнения команды: {e}")
+                notifier.say("Произошла ошибка во время выполнения команды.")
+            finally:
+                runtime_control.finish_job()
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -93,6 +102,7 @@ def run_background_mode():
 
     print(f"[BG] Фоновый режим запущен. Горячая клавиша: {hotkey}")
     print("[BG] Лайк: Ctrl+Alt+Up | Дизлайк: Ctrl+Alt+Down")
+    print("[BG] Повторное нажатие hotkey во время работы отменяет текущую операцию.")
     print("[BG] Нажми ESC для выхода.")
 
     with keyboard.Listener(

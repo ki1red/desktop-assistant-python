@@ -3,6 +3,7 @@ import time
 
 from app.config import VOICE_SETTINGS
 from app.voice.speaker import speaker
+from app.runtime_control import runtime_control
 
 
 class ProgressHeartbeat:
@@ -19,6 +20,8 @@ class ProgressHeartbeat:
     def _run(self):
         time.sleep(self.interval)
         while not self._stop_event.is_set():
+            if runtime_control.is_cancelled():
+                return
             speaker.say_random("working")
             time.sleep(self.interval)
 

@@ -7,10 +7,11 @@ from app.response.presenter import ResponsePresenter
 from app.adaptive.history import save_usage
 from app.adaptive.quick_access import upsert_quick_target
 from app.session.state import session_state
-from app.config import RECORD_DURATION_SEC, TEMP_CLEANUP_SETTINGS
+from app.config import TEMP_CLEANUP_SETTINGS
 from app.models import ResolvedTarget
 from app.events.notifier import AssistantNotifier
 from app.assistant_progress import ProgressHeartbeat
+from app.runtime_control import runtime_control
 
 
 class AssistantPipeline:
@@ -23,14 +24,34 @@ class AssistantPipeline:
         self.notifier = AssistantNotifier()
 
     def _handle_command(self, command, deep_search: bool = False):
+        if runtime_control.is_cancelled():
+            print("[PIPELINE] Операция отменена пользователем до начала выполнения.")
+            self.notifier.say("Операция отменена.")
+            return None
+
         heartbeat = ProgressHeartbeat()
         heartbeat.start()
         try:
+            if runtime_control.is_cancelled():
+                print("[PIPELINE] Операция отменена пользователем перед resolve.")
+                self.notifier.say("Операция отменена.")
+                return None
+
             resolved = self.resolver.resolve(command, deep_search=deep_search)
             print(f"[RESOLVED] success={resolved.success}, type={resolved.target_type}, path={resolved.target_path}")
 
+            if runtime_control.is_cancelled():
+                print("[PIPELINE] Операция отменена пользователем после resolve.")
+                self.notifier.say("Операция отменена.")
+                return None
+
             execution = self.executor.execute(command, resolved)
             self.presenter.show(execution)
+
+            if runtime_control.is_cancelled():
+                print("[PIPELINE] Операция отменена пользователем после execute.")
+                self.notifier.say("Операция отменена.")
+                return None
 
             if resolved.suggests_deep_search:
                 session_state.set_pending_deep_search(command)
@@ -119,10 +140,14 @@ class AssistantPipeline:
 
     def run_once(self):
         print("[PIPELINE] Начало цикла обработки команды.")
-        # ВАЖНО: перед записью голос не говорим, чтобы не ухудшать STT
-        wav_path = record_audio_to_wav(duration_sec=RECORD_DURATION_SEC)
+        wav_path = record_audio_to_wav()
 
         try:
+            if runtime_control.is_cancelled():
+                print("[PIPELINE] Операция отменена пользователем сразу после записи.")
+                self.notifier.say("Операция отменена.")
+                return None
+
             self.notifier.say_random("processing")
 
             try:
@@ -132,10 +157,20 @@ class AssistantPipeline:
                 self.notifier.say("Не удалось распознать аудио.")
                 return None
 
+            if runtime_control.is_cancelled():
+                print("[PIPELINE] Операция отменена пользователем после STT.")
+                self.notifier.say("Операция отменена.")
+                return None
+
             print(f"[STT] {stt_result.text}")
 
             command = self.parser.parse(stt_result.text)
             print(f"[PARSED] intent={command.intent}, target={command.target_text}")
+
+            if runtime_control.is_cancelled():
+                print("[PIPELINE] Операция отменена пользователем после parse.")
+                self.notifier.say("Операция отменена.")
+                return None
 
             if command.intent == "select_candidate":
                 return self._handle_selection(int(command.target_text))

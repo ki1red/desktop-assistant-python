@@ -110,19 +110,10 @@ class CommandExecutor:
                 intent=command.intent
             )
 
-        if ASSISTANT_SETTINGS.get("announce_before_execution", True):
-            self.notifier.notify(AssistantAnnouncement(
-                stage="before_execute",
-                text=f"Сейчас выполню команду: {command.intent}. Цель: {resolved.target_name}",
-                intent=command.intent,
-                target_name=resolved.target_name,
-                target_path=resolved.target_path
-            ))
-
         try:
             os.startfile(resolved.target_path)
 
-            success_text = f"Команда выполнена успешно: {resolved.target_name}"
+            success_text = f"Выполнил команду: {resolved.target_name}"
             if ASSISTANT_SETTINGS.get("announce_after_execution", True):
                 self.notifier.notify(AssistantAnnouncement(
                     stage="after_execute",

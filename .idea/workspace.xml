@@ -4,14 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)">
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Улучшено озвучивание ассистента.&#10;Голосовые команды вновь работают нормально.">
+      <change afterPath="$PROJECT_DIR$/app/runtime_control.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/assistant_progress.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_progress.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/background_runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/background_runner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/events/notifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/events/notifier.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/executor/executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/executor/executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/voice/speaker.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/voice/speaker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/resolver/file_search.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/file_search.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/resolver/resolver.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/resolver/resolver.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -159,7 +163,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775896771877</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Улучшено озвучивание ассистента.&#10;Голосовые команды вновь работают нормально.">
+      <option name="closed" value="true" />
+      <created>1775899256410</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1775899256410</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -183,6 +195,7 @@
     <MESSAGE value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
     <MESSAGE value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
     <MESSAGE value="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)" />
-    <option name="LAST_COMMIT_MESSAGE" value="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)" />
+    <MESSAGE value="Улучшено озвучивание ассистента.&#10;Голосовые команды вновь работают нормально." />
+    <option name="LAST_COMMIT_MESSAGE" value="Улучшено озвучивание ассистента.&#10;Голосовые команды вновь работают нормально." />
   </component>
 </project>
