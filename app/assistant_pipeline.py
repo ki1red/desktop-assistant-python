@@ -42,7 +42,6 @@ class AssistantPipeline:
 
             if runtime_control.is_cancelled():
                 print("[PIPELINE] Операция отменена пользователем после resolve.")
-                self.notifier.say("Операция отменена.")
                 return None
 
             execution = self.executor.execute(command, resolved)
@@ -50,7 +49,6 @@ class AssistantPipeline:
 
             if runtime_control.is_cancelled():
                 print("[PIPELINE] Операция отменена пользователем после execute.")
-                self.notifier.say("Операция отменена.")
                 return None
 
             if resolved.suggests_deep_search:

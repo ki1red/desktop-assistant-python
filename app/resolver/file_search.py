@@ -10,6 +10,7 @@ from app.utils import get_priority_roots
 from app.text_variants import build_name_variants, normalize_basic
 from app.search_filters import is_bad_generic_file_candidate, is_safe_user_openable_file
 from app.runtime_control import runtime_control
+import sqlite3
 
 def _build_priority_source_kinds() -> set[str]:
     keys = set(get_priority_roots().keys())
@@ -58,10 +59,18 @@ def _fetch_candidates_by_type_prefiltered(
         WHERE {' AND '.join(conditions)}
         LIMIT {limit}
     """
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+
+    try:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        return rows
+    except sqlite3.OperationalError as e:
+        if "interrupted" in str(e).lower():
+            print("[SEARCH] SQL-поиск отменён пользователем.")
+            return []
+        raise
+    finally:
+        conn.close()
 
 
 def _score_rows(query: str, rows, generic_mode: bool = False) -> List[Candidate]:

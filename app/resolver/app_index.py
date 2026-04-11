@@ -14,7 +14,7 @@ from app.text_variants import (
     normalize_query_text,
 )
 from app.utils import get_priority_roots
-
+import sqlite3
 
 def _build_priority_app_sources() -> set[str]:
     roots = set(get_priority_roots().keys())
@@ -52,10 +52,18 @@ def _fetch_app_rows_prefiltered(query: str, source_kinds: Optional[Set[str]] = N
         WHERE {' AND '.join(conditions)}
         LIMIT {limit}
     """
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    conn.close()
-    return rows
+
+    try:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        return rows
+    except sqlite3.OperationalError as e:
+        if "interrupted" in str(e).lower():
+            print("[APP_SEARCH] SQL-поиск приложений отменён пользователем.")
+            return []
+        raise
+    finally:
+        conn.close()
 
 
 def _variant_similarity(query_text: str, candidate_text: str) -> float:

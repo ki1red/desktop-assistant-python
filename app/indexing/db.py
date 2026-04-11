@@ -5,6 +5,18 @@ from app.config import DB_PATH
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+
+    try:
+        from app.runtime_control import runtime_control
+
+        def _progress_handler():
+            return 1 if runtime_control.is_cancelled() else 0
+
+        # Проверка отмены каждые N шагов SQLite VM
+        conn.set_progress_handler(_progress_handler, 2000)
+    except Exception:
+        pass
+
     return conn
 
 

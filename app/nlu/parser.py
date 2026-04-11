@@ -59,6 +59,15 @@ class CommandParser:
         "программа", "программу", "программы"
     }
 
+    VIDEO_SEARCH_KEYWORDS = [
+        "включи видео",
+        "включить видео",
+        "найди видео",
+        "найти видео",
+        "открой видео",
+        "запусти видео"
+    ]
+
     def _cleanup_target(self, target: str) -> str:
         tokens = target.split()
         tokens = [t for t in tokens if t not in self.TARGET_FILLER_WORDS]
@@ -114,6 +123,12 @@ class CommandParser:
                 target = normalized.replace(prefix, "", 1).strip()
                 target = self._cleanup_target(target)
                 return ParsedCommand(text, normalized, "open_folder", target)
+
+        for prefix in self.VIDEO_SEARCH_KEYWORDS:
+            if normalized.startswith(prefix):
+                target = normalized.replace(prefix, "", 1).strip()
+                target = self._cleanup_target(target)
+                return ParsedCommand(text, normalized, "search_youtube", target)
 
         for prefix in self.PLAY_MEDIA_KEYWORDS:
             if normalized.startswith(prefix):

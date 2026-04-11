@@ -5,6 +5,10 @@ import subprocess
 import threading
 
 from app.config import VOICE_SETTINGS
+from app.logger import get_logger
+
+
+logger = get_logger("voice")
 
 
 class VoiceSpeaker:
@@ -32,12 +36,7 @@ class VoiceSpeaker:
 
     def _build_ps_script(self, text: str) -> str:
         escaped = self._escape_powershell_text(text)
-
-        # Volume в System.Speech: 0..100
         volume_100 = int(max(0.0, min(1.0, self.volume)) * 100)
-
-        # Rate в System.Speech: примерно -10..10
-        # 185 считаем базой, приводим грубо
         ps_rate = int((self.rate - 185) / 12)
         ps_rate = max(-10, min(10, ps_rate))
 
@@ -68,9 +67,6 @@ $synth.Speak('{escaped}');
     def _speak_platform(self, text: str):
         if os.name == "nt":
             self._speak_windows(text)
-        else:
-            # fallback: просто ничего не делаем, можно потом расширить
-            pass
 
     def _worker(self):
         while True:
@@ -82,11 +78,13 @@ $synth.Speak('{escaped}');
             if not text:
                 continue
 
+            logger.info("[VOICE] %s", text)
             print(f"[VOICE] {text}")
 
             try:
                 self._speak_platform(text)
             except Exception as e:
+                logger.exception("Ошибка TTS: %s", e)
                 print(f"[VOICE][ERROR] Ошибка TTS: {e}")
 
     def say(self, text: str):
@@ -98,10 +96,12 @@ $synth.Speak('{escaped}');
         if not self.enabled or not text:
             return
 
+        logger.info("[VOICE_SYNC] %s", text)
         print(f"[VOICE] {text}")
         try:
             self._speak_platform(text)
         except Exception as e:
+            logger.exception("Ошибка TTS: %s", e)
             print(f"[VOICE][ERROR] Ошибка TTS: {e}")
 
     def say_random(self, group_name: str):
