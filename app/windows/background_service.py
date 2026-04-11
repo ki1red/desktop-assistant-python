@@ -21,6 +21,7 @@ class BackgroundAssistantService:
         self.cancel_on_second_press = BACKGROUND_SETTINGS.get("double_press_cancels", True)
         self.listener = None
         self._running = False
+        self.is_paused = False
 
     def _beep(self):
         try:
@@ -30,6 +31,11 @@ class BackgroundAssistantService:
             pass
 
     def _on_activate(self):
+        if self.is_paused:
+            logger.info("Команда проигнорирована: ассистент на паузе.")
+            self.notifier.say("Ассистент на паузе.")
+            return
+
         if runtime_control.is_busy():
             if self.cancel_on_second_press:
                 runtime_control.cancel_job()
@@ -82,6 +88,14 @@ class BackgroundAssistantService:
             logger.info("Нет последней команды для дизлайка.")
             print("[BG] Нет последней команды для дизлайка.")
             self.notifier.say("Нет последней команды для дизлайка.")
+
+    def pause(self):
+        self.is_paused = True
+        logger.info("Ассистент поставлен на паузу.")
+
+    def resume(self):
+        self.is_paused = False
+        logger.info("Ассистент возобновлён.")
 
     def start(self):
         if self._running:

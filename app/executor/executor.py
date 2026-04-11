@@ -8,12 +8,13 @@ from app.config import ASSISTANT_SETTINGS
 from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback
 from app.providers.router import ProviderRouter
-
+from app.custom_commands.admin import CustomCommandsAdmin
 
 class CommandExecutor:
     def __init__(self):
         self.notifier = AssistantNotifier()
         self.provider_router = ProviderRouter()
+        self.custom_admin = CustomCommandsAdmin()
 
     def execute(self, command: ParsedCommand, resolved: ResolvedTarget) -> ExecutionResult:
         if command.intent == "negative_feedback":
@@ -49,6 +50,56 @@ class CommandExecutor:
                 message="Глубокий поиск отменён.",
                 intent=command.intent
             )
+
+        if command.intent == "custom_command":
+            row = self.custom_admin.resolve_command(command.normalized_text)
+            if not row or not row["is_enabled"]:
+                self.notifier.say("Пользовательская команда недоступна.")
+                return ExecutionResult(
+                    success=False,
+                    message="Пользовательская команда недоступна.",
+                    intent=command.intent
+                )
+
+            command_type = row["command_type"]
+            payload = row["payload"]
+
+            try:
+                if command_type == "open_path":
+                    self.notifier.say(f"Открываю: {payload}")
+                    os.startfile(payload)
+                    self.notifier.say_random("done")
+                    return ExecutionResult(
+                        success=True,
+                        message=f"Открыт путь: {payload}",
+                        intent=command.intent,
+                        target_path=payload
+                    )
+
+                if command_type == "open_url":
+                    self.notifier.say("Открываю ссылку.")
+                    webbrowser.open(payload)
+                    self.notifier.say_random("done")
+                    return ExecutionResult(
+                        success=True,
+                        message=f"Открыта ссылка: {payload}",
+                        intent=command.intent,
+                        target_path=payload
+                    )
+
+                self.notifier.say("Неизвестный тип пользовательской команды.")
+                return ExecutionResult(
+                    success=False,
+                    message=f"Неизвестный тип пользовательской команды: {command_type}",
+                    intent=command.intent
+                )
+            except Exception as e:
+                self.notifier.say("Не удалось выполнить пользовательскую команду.")
+                return ExecutionResult(
+                    success=False,
+                    message=f"Ошибка выполнения пользовательской команды: {e}",
+                    intent=command.intent
+                )
 
         if command.intent == "search_web":
             url = self.provider_router.build_default_web_search_url(command.target_text)

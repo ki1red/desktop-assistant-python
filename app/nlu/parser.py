@@ -1,5 +1,6 @@
 from app.models import ParsedCommand
 from app.nlu.normalizer import normalize_command_text
+from app.custom_commands.admin import CustomCommandsAdmin
 
 
 class CommandParser:
@@ -68,6 +69,9 @@ class CommandParser:
         "запусти видео"
     ]
 
+    def __init__(self):
+        self.custom_admin = CustomCommandsAdmin()
+
     def _cleanup_target(self, target: str) -> str:
         tokens = target.split()
         tokens = [t for t in tokens if t not in self.TARGET_FILLER_WORDS]
@@ -88,6 +92,9 @@ class CommandParser:
 
     def parse(self, text: str) -> ParsedCommand:
         normalized = normalize_command_text(text)
+        custom = self.custom_admin.resolve_command(normalized)
+        if custom and custom["is_enabled"]:
+            return ParsedCommand(text, normalized, "custom_command", normalized)
 
         if normalized in self.SELECTION_KEYWORDS:
             return ParsedCommand(text, normalized, "select_candidate", str(self.SELECTION_KEYWORDS[normalized]))
