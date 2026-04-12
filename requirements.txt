@@ -5,3 +5,5 @@ numpy
 RapidFuzz
 pynput
 PySide6
+keyboard
+pyperclip

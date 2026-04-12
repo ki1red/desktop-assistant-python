@@ -13,17 +13,14 @@ logger = get_logger("app_runtime")
 class AppRuntime:
     def __init__(self):
         self.qt_app = QApplication([])
-        self.window = AssistantMainWindow()
         self.bg_service = BackgroundAssistantService()
+        self.window = AssistantMainWindow(self.bg_service)
         self.notifier = AssistantNotifier()
         self.tray = TrayController(self.window, self.bg_service, self.notifier)
 
     def start(self):
         logger.info("Запуск AppRuntime.")
         self.bg_service.start()
+        self.window.hide()
         self.tray.show()
-
-        # ВРЕМЕННО: показываем окно при старте для проверки
-        #self.window.show()
-
         return self.qt_app.exec()

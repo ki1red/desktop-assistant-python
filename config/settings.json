@@ -58,6 +58,23 @@
       "Загрузки"
     ]
   },
+  "ai": {
+    "enabled": true,
+    "provider": "stub",
+    "wake_phrases": [
+      "ассистент",
+      "режим общения",
+      "включи режим общения",
+      "давай поговорим"
+    ],
+    "stop_phrases": [
+      "выключи режим общения",
+      "хватит общаться",
+      "режим общения выключить",
+      "заверши общение"
+    ],
+    "speak_responses": true
+  },
   "assistant": {
     "announce_before_execution": true,
     "announce_after_execution": true,
@@ -74,7 +91,7 @@
     ]
   },
   "voice": {
-    "enabled": false,
+    "enabled": true,
     "rate": 185,
     "volume": 1.0,
     "heartbeat_interval_sec": 8,

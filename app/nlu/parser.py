@@ -1,6 +1,7 @@
 from app.models import ParsedCommand
 from app.nlu.normalizer import normalize_command_text
 from app.custom_commands.admin import CustomCommandsAdmin
+from app.settings_service import settings_service
 
 
 class CommandParser:
@@ -18,6 +19,15 @@ class CommandParser:
         "включи песню", "включить песню",
         "включи музыку", "включить музыку",
         "воспроизведи"
+    ]
+
+    VIDEO_SEARCH_KEYWORDS = [
+        "включи видео",
+        "включить видео",
+        "найди видео",
+        "найти видео",
+        "открой видео",
+        "запусти видео"
     ]
 
     WEB_SEARCH_KEYWORDS = [
@@ -49,6 +59,23 @@ class CommandParser:
         "нет", "не ищи", "не надо", "отмена", "не нужно"
     ]
 
+    DICTATION_ENABLE_KEYWORDS = [
+        "включи диктовку",
+        "включить диктовку",
+        "режим диктовки",
+        "начни диктовку",
+        "начать диктовку"
+    ]
+
+    DICTATION_DISABLE_KEYWORDS = [
+        "выключи диктовку",
+        "выключить диктовку",
+        "останови диктовку",
+        "остановить диктовку",
+        "заверши диктовку",
+        "закончить диктовку"
+    ]
+
     SELECTION_KEYWORDS = {
         "первый": 1, "первая": 1, "1": 1, "один": 1,
         "второй": 2, "вторая": 2, "2": 2, "два": 2,
@@ -59,15 +86,6 @@ class CommandParser:
         "приложение", "приложения",
         "программа", "программу", "программы"
     }
-
-    VIDEO_SEARCH_KEYWORDS = [
-        "включи видео",
-        "включить видео",
-        "найди видео",
-        "найти видео",
-        "открой видео",
-        "запусти видео"
-    ]
 
     def __init__(self):
         self.custom_admin = CustomCommandsAdmin()
@@ -80,11 +98,9 @@ class CommandParser:
     def _fallback_intent(self, normalized: str) -> ParsedCommand:
         words = normalized.split()
 
-        # Одно-два слова без глагола — вероятнее всего запуск объекта
         if 1 <= len(words) <= 3:
             return ParsedCommand(normalized, normalized, "generic_open", normalized)
 
-        # 3-6 слов без явного глагола — скорее поисковый запрос
         if 3 <= len(words) <= 6:
             return ParsedCommand(normalized, normalized, "search_web", normalized)
 
@@ -92,12 +108,29 @@ class CommandParser:
 
     def parse(self, text: str) -> ParsedCommand:
         normalized = normalize_command_text(text)
+
+        ai_cfg = settings_service.get_section("ai", {})
+        wake_phrases = set(ai_cfg.get("wake_phrases", []))
+        stop_phrases = set(ai_cfg.get("stop_phrases", []))
+
         custom = self.custom_admin.resolve_command(normalized)
         if custom and custom["is_enabled"]:
             return ParsedCommand(text, normalized, "custom_command", normalized)
 
         if normalized in self.SELECTION_KEYWORDS:
             return ParsedCommand(text, normalized, "select_candidate", str(self.SELECTION_KEYWORDS[normalized]))
+
+        if normalized in wake_phrases:
+            return ParsedCommand(text, normalized, "enable_chat_mode", "")
+
+        if normalized in stop_phrases:
+            return ParsedCommand(text, normalized, "disable_chat_mode", "")
+
+        if normalized in self.DICTATION_ENABLE_KEYWORDS:
+            return ParsedCommand(text, normalized, "enable_dictation", "")
+
+        if normalized in self.DICTATION_DISABLE_KEYWORDS:
+            return ParsedCommand(text, normalized, "disable_dictation", "")
 
         if normalized in self.DEEP_SEARCH_CONFIRM_KEYWORDS:
             return ParsedCommand(text, normalized, "confirm_deep_search", "")
@@ -119,6 +152,12 @@ class CommandParser:
                 target = normalized.replace(prefix, "", 1).strip()
                 return ParsedCommand(text, normalized, "search_youtube", target)
 
+        for prefix in self.VIDEO_SEARCH_KEYWORDS:
+            if normalized.startswith(prefix):
+                target = normalized.replace(prefix, "", 1).strip()
+                target = self._cleanup_target(target)
+                return ParsedCommand(text, normalized, "search_youtube", target)
+
         for prefix in self.OPEN_FILE_KEYWORDS:
             if normalized.startswith(prefix):
                 target = normalized.replace(prefix, "", 1).strip()
@@ -130,12 +169,6 @@ class CommandParser:
                 target = normalized.replace(prefix, "", 1).strip()
                 target = self._cleanup_target(target)
                 return ParsedCommand(text, normalized, "open_folder", target)
-
-        for prefix in self.VIDEO_SEARCH_KEYWORDS:
-            if normalized.startswith(prefix):
-                target = normalized.replace(prefix, "", 1).strip()
-                target = self._cleanup_target(target)
-                return ParsedCommand(text, normalized, "search_youtube", target)
 
         for prefix in self.PLAY_MEDIA_KEYWORDS:
             if normalized.startswith(prefix):

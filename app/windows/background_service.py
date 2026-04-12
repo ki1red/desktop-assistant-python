@@ -2,12 +2,12 @@ import threading
 from pynput import keyboard
 
 from app.assistant_pipeline import AssistantPipeline
-from app.config import BACKGROUND_SETTINGS
 from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback, register_positive_feedback
 from app.events.notifier import AssistantNotifier
 from app.runtime_control import runtime_control
 from app.logger import get_logger
+from app.settings_service import settings_service
 
 
 logger = get_logger("background_service")
@@ -17,11 +17,33 @@ class BackgroundAssistantService:
     def __init__(self):
         self.pipeline = AssistantPipeline()
         self.notifier = AssistantNotifier()
-        self.hotkey = BACKGROUND_SETTINGS.get("hotkey", "<ctrl>+<alt>+<space>")
-        self.cancel_on_second_press = BACKGROUND_SETTINGS.get("double_press_cancels", True)
         self.listener = None
         self._running = False
         self.is_paused = False
+
+        self.hotkey = "<ctrl>+<alt>+<space>"
+        self.cancel_on_second_press = True
+
+        self._apply_config(settings_service.get_all())
+        settings_service.subscribe(self._on_settings_changed)
+
+    def _apply_config(self, config_snapshot: dict):
+        bg = config_snapshot.get("background", {})
+        new_hotkey = bg.get("hotkey", "<ctrl>+<alt>+<space>")
+        new_cancel = bg.get("double_press_cancels", True)
+
+        hotkey_changed = new_hotkey != self.hotkey
+        cancel_changed = new_cancel != self.cancel_on_second_press
+
+        self.hotkey = new_hotkey
+        self.cancel_on_second_press = new_cancel
+
+        if self._running and (hotkey_changed or cancel_changed):
+            logger.info("Настройки hotkey обновлены на лету: hotkey=%s cancel=%s", self.hotkey, self.cancel_on_second_press)
+            self._restart_listener()
+
+    def _on_settings_changed(self, config_snapshot: dict):
+        self._apply_config(config_snapshot)
 
     def _beep(self):
         try:
@@ -97,27 +119,19 @@ class BackgroundAssistantService:
         self.is_paused = False
         logger.info("Ассистент возобновлён.")
 
-    def start(self):
-        if self._running:
-            return
-
-        try:
-            open_hotkey = keyboard.HotKey(
-                keyboard.HotKey.parse(self.hotkey),
-                self._on_activate
-            )
-            like_hotkey = keyboard.HotKey(
-                keyboard.HotKey.parse("<ctrl>+<alt>+<up>"),
-                self._on_like
-            )
-            dislike_hotkey = keyboard.HotKey(
-                keyboard.HotKey.parse("<ctrl>+<alt>+<down>"),
-                self._on_dislike
-            )
-        except ValueError as e:
-            logger.exception("Ошибка формата hotkey: %s", e)
-            print(f"[BG][ERROR] Ошибка формата hotkey: {e}")
-            return
+    def _create_listener(self):
+        open_hotkey = keyboard.HotKey(
+            keyboard.HotKey.parse(self.hotkey),
+            self._on_activate
+        )
+        like_hotkey = keyboard.HotKey(
+            keyboard.HotKey.parse("<ctrl>+<alt>+<up>"),
+            self._on_like
+        )
+        dislike_hotkey = keyboard.HotKey(
+            keyboard.HotKey.parse("<ctrl>+<alt>+<down>"),
+            self._on_dislike
+        )
 
         def on_press(key):
             canonical = self.listener.canonical(key)
@@ -131,11 +145,30 @@ class BackgroundAssistantService:
             like_hotkey.release(canonical)
             dislike_hotkey.release(canonical)
 
-        self.listener = keyboard.Listener(
-            on_press=on_press,
-            on_release=on_release
-        )
-        self.listener.start()
+        return keyboard.Listener(on_press=on_press, on_release=on_release)
+
+    def _restart_listener(self):
+        if self.listener:
+            try:
+                self.listener.stop()
+            except Exception:
+                pass
+            self.listener = None
+
+        try:
+            self.listener = self._create_listener()
+            self.listener.start()
+            logger.info("Listener перезапущен с новой горячей клавишей: %s", self.hotkey)
+        except ValueError as e:
+            logger.exception("Ошибка формата hotkey: %s", e)
+            print(f"[BG][ERROR] Ошибка формата hotkey: {e}")
+            self.notifier.say("Неверный формат горячей клавиши.")
+
+    def start(self):
+        if self._running:
+            return
+
+        self._restart_listener()
         self._running = True
 
         logger.info("Фоновый сервис запущен. Hotkey: %s", self.hotkey)

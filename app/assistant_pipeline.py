@@ -8,10 +8,15 @@ from app.adaptive.history import save_usage
 from app.adaptive.quick_access import upsert_quick_target
 from app.session.state import session_state
 from app.config import TEMP_CLEANUP_SETTINGS
-from app.models import ResolvedTarget
+from app.models import ResolvedTarget, ExecutionResult
 from app.events.notifier import AssistantNotifier
 from app.assistant_progress import ProgressHeartbeat
 from app.runtime_control import runtime_control
+from app.dictation.state import dictation_state
+from app.dictation.text_actions import apply_dictation_phrase
+from app.chat.state import chat_state
+from app.ai.gateway import AIGateway
+from app.settings_service import settings_service
 
 
 class AssistantPipeline:
@@ -22,6 +27,7 @@ class AssistantPipeline:
         self.executor = CommandExecutor()
         self.presenter = ResponsePresenter()
         self.notifier = AssistantNotifier()
+        self.ai_gateway = AIGateway()
 
     def _handle_command(self, command, deep_search: bool = False):
         if runtime_control.is_cancelled():
@@ -136,6 +142,57 @@ class AssistantPipeline:
         session_state.remember(pending_command, resolved, execution)
         return execution
 
+    def _handle_dictation(self, stt_text: str):
+        if runtime_control.is_cancelled():
+            return None
+
+        parsed = self.parser.parse(stt_text)
+
+        if parsed.intent == "disable_dictation":
+            execution = self.executor.execute(parsed, ResolvedTarget(success=False))
+            self.presenter.show(execution)
+            return execution
+
+        if parsed.intent == "enable_dictation":
+            execution = self.executor.execute(parsed, ResolvedTarget(success=False))
+            self.presenter.show(execution)
+            return execution
+
+        apply_dictation_phrase(stt_text)
+        message = f"Продиктовано: {stt_text}"
+        print(f"[DICTATION] {message}")
+
+        return ExecutionResult(
+            success=True,
+            message=message,
+            intent="dictation_text"
+        )
+
+    def _handle_chat_mode(self, stt_text: str):
+        parsed = self.parser.parse(stt_text)
+
+        if parsed.intent == "disable_chat_mode":
+            execution = self.executor.execute(parsed, ResolvedTarget(success=False))
+            self.presenter.show(execution)
+            return execution
+
+        if parsed.intent == "enable_chat_mode":
+            execution = self.executor.execute(parsed, ResolvedTarget(success=False))
+            self.presenter.show(execution)
+            return execution
+
+        reply = self.ai_gateway.ask(stt_text)
+        print(f"[AI] {reply}")
+
+        if settings_service.get_section("ai", {}).get("speak_responses", True):
+            self.notifier.say(reply)
+
+        return ExecutionResult(
+            success=True,
+            message=reply,
+            intent="chat_reply"
+        )
+
     def run_once(self):
         print("[PIPELINE] Начало цикла обработки команды.")
         wav_path = record_audio_to_wav()
@@ -146,21 +203,30 @@ class AssistantPipeline:
                 self.notifier.say("Операция отменена.")
                 return None
 
-            self.notifier.say_random("processing")
+            if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                self.notifier.say_random("processing")
 
             try:
                 stt_result = self.transcriber.transcribe(wav_path)
             except Exception as e:
                 print(f"[STT][ERROR] Не удалось распознать аудио: {e}")
-                self.notifier.say("Не удалось распознать аудио.")
+                if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                    self.notifier.say("Не удалось распознать аудио.")
                 return None
 
             if runtime_control.is_cancelled():
                 print("[PIPELINE] Операция отменена пользователем после STT.")
-                self.notifier.say("Операция отменена.")
+                if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                    self.notifier.say("Операция отменена.")
                 return None
 
             print(f"[STT] {stt_result.text}")
+
+            if dictation_state.is_enabled():
+                return self._handle_dictation(stt_result.text)
+
+            if chat_state.is_enabled():
+                return self._handle_chat_mode(stt_result.text)
 
             command = self.parser.parse(stt_result.text)
             print(f"[PARSED] intent={command.intent}, target={command.target_text}")
@@ -169,6 +235,12 @@ class AssistantPipeline:
                 print("[PIPELINE] Операция отменена пользователем после parse.")
                 self.notifier.say("Операция отменена.")
                 return None
+
+            if command.intent == "enable_chat_mode":
+                return self._handle_command(command, deep_search=False)
+
+            if command.intent == "disable_chat_mode":
+                return self._handle_command(command, deep_search=False)
 
             if command.intent == "select_candidate":
                 return self._handle_selection(int(command.target_text))

@@ -9,6 +9,9 @@ from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback
 from app.providers.router import ProviderRouter
 from app.custom_commands.admin import CustomCommandsAdmin
+from app.dictation.state import dictation_state
+from app.chat.state import chat_state
+
 
 class CommandExecutor:
     def __init__(self):
@@ -17,6 +20,42 @@ class CommandExecutor:
         self.custom_admin = CustomCommandsAdmin()
 
     def execute(self, command: ParsedCommand, resolved: ResolvedTarget) -> ExecutionResult:
+        if command.intent == "enable_chat_mode":
+            chat_state.enable()
+            self.notifier.say("Режим общения включён.")
+            return ExecutionResult(
+                success=True,
+                message="Режим общения включён.",
+                intent=command.intent
+            )
+
+        if command.intent == "disable_chat_mode":
+            chat_state.disable()
+            self.notifier.say("Режим общения выключен.")
+            return ExecutionResult(
+                success=True,
+                message="Режим общения выключен.",
+                intent=command.intent
+            )
+
+        if command.intent == "enable_dictation":
+            dictation_state.enable()
+            self.notifier.say("Режим диктовки включён.")
+            return ExecutionResult(
+                success=True,
+                message="Режим диктовки включён.",
+                intent=command.intent
+            )
+
+        if command.intent == "disable_dictation":
+            dictation_state.disable()
+            self.notifier.say("Режим диктовки выключен.")
+            return ExecutionResult(
+                success=True,
+                message="Режим диктовки выключен.",
+                intent=command.intent
+            )
+
         if command.intent == "negative_feedback":
             last_resolved = session_state.last_resolved
             if last_resolved and last_resolved.target_path:
