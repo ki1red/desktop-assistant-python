@@ -59,6 +59,7 @@
     ]
   },
   "ai": {
+    "chat_ollama_model": "gemma3:4b",
     "enabled": true,
     "provider": "ollama",
     "ollama_host": "http://localhost:11434",

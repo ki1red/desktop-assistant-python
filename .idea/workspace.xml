@@ -4,16 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Подготовлена тчока под ИИ.&#10;Добавлена возможность менять настройки на горячую.">
-      <change afterPath="$PROJECT_DIR$/app/ai/ollama_health.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/ai/ollama_model_discovery.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Использование ИИ внедрено. Пока что работает очень медленно.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/ai/gateway.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/gateway.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ai/ollama_health.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/ollama_health.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -213,7 +210,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775992545443</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="Использование ИИ внедрено. Пока что работает очень медленно.">
+      <option name="closed" value="true" />
+      <created>1776502817506</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1776502817506</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -243,7 +248,8 @@
     <MESSAGE value="Добавлен запуск в фоновом режиме с иконкой в трее." />
     <MESSAGE value="Добавлено изменение настроек ассистента без перезапуска.&#10;Прерывание не работает." />
     <MESSAGE value="Подготовлена тчока под ИИ.&#10;Добавлена возможность менять настройки на горячую." />
-    <option name="LAST_COMMIT_MESSAGE" value="Подготовлена тчока под ИИ.&#10;Добавлена возможность менять настройки на горячую." />
+    <MESSAGE value="Использование ИИ внедрено. Пока что работает очень медленно." />
+    <option name="LAST_COMMIT_MESSAGE" value="Использование ИИ внедрено. Пока что работает очень медленно." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
