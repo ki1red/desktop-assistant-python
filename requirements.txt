@@ -7,3 +7,4 @@ pynput
 PySide6
 keyboard
 pyperclip
+ollama

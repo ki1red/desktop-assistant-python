@@ -60,7 +60,10 @@
   },
   "ai": {
     "enabled": true,
-    "provider": "stub",
+    "provider": "ollama",
+    "ollama_host": "http://localhost:11434",
+    "ollama_model": "huihui_ai/qwen3.5-abliterated:35b",
+    "ollama_models_path": "C:\\Users\\druzh\\.ollama\\models",
     "wake_phrases": [
       "ассистент",
       "режим общения",
@@ -69,7 +72,7 @@
     ],
     "stop_phrases": [
       "выключи режим общения",
-      "хватит общаться",
+      "хватит общ  аться",
       "режим общения выключить",
       "заверши общение"
     ],
