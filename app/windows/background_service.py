@@ -20,6 +20,7 @@ class BackgroundAssistantService:
         self.listener = None
         self._running = False
         self.is_paused = False
+        self._worker_thread = None
 
         self.hotkey = "<ctrl>+<alt>+<space>"
         self.cancel_on_second_press = True
@@ -39,7 +40,11 @@ class BackgroundAssistantService:
         self.cancel_on_second_press = new_cancel
 
         if self._running and (hotkey_changed or cancel_changed):
-            logger.info("Настройки hotkey обновлены на лету: hotkey=%s cancel=%s", self.hotkey, self.cancel_on_second_press)
+            logger.info(
+                "Настройки hotkey обновлены на лету: hotkey=%s cancel=%s",
+                self.hotkey,
+                self.cancel_on_second_press,
+            )
             self._restart_listener()
 
     def _on_settings_changed(self, config_snapshot: dict):
@@ -52,19 +57,26 @@ class BackgroundAssistantService:
         except Exception:
             pass
 
+    def _cleanup_dead_thread(self):
+        if self._worker_thread is not None and not self._worker_thread.is_alive():
+            self._worker_thread = None
+
+    def is_busy(self) -> bool:
+        self._cleanup_dead_thread()
+        return self._worker_thread is not None and self._worker_thread.is_alive()
+
     def _on_activate(self):
         if self.is_paused:
             logger.info("Команда проигнорирована: ассистент на паузе.")
             self.notifier.say("Ассистент на паузе.")
             return
 
-        if runtime_control.is_busy():
+        if self.is_busy():
             if self.cancel_on_second_press:
-                runtime_control.cancel_job()
-                if runtime_control.mark_cancel_announced():
-                    logger.info("Запрошена отмена текущей операции.")
-                    print("[BG] Запрошена отмена текущей операции.")
-                    self.notifier.say("Отменяю текущую операцию.")
+                logger.info("Запрошена отмена текущей операции.")
+                print("[BG] Запрошена отмена текущей операции.")
+                self.pipeline.cancel_current_operation()
+                self.notifier.say("Текущая операция отменена.")
             else:
                 logger.info("Ассистент уже обрабатывает предыдущую команду.")
                 print("[BG] Ассистент уже обрабатывает предыдущую команду.")
@@ -85,7 +97,8 @@ class BackgroundAssistantService:
             finally:
                 runtime_control.finish_job()
 
-        threading.Thread(target=worker, daemon=True).start()
+        self._worker_thread = threading.Thread(target=worker, daemon=True)
+        self._worker_thread.start()
 
     def _on_like(self):
         last = session_state.last_resolved
@@ -174,11 +187,15 @@ class BackgroundAssistantService:
         logger.info("Фоновый сервис запущен. Hotkey: %s", self.hotkey)
         print(f"[BG] Фоновый режим запущен. Горячая клавиша: {self.hotkey}")
         print("[BG] Лайк: Ctrl+Alt+Up | Дизлайк: Ctrl+Alt+Down")
-        print("[BG] Повторное нажатие hotkey во время работы отменяет текущую операцию.")
+        print("[BG] Повторное нажатие hotkey во время работы мгновенно отменяет текущую операцию.")
 
     def stop(self):
         if self.listener:
             self.listener.stop()
             self.listener = None
+
+        if self.is_busy():
+            self.pipeline.cancel_current_operation()
+
         self._running = False
         logger.info("Фоновый сервис остановлен.")

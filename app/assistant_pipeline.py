@@ -1,3 +1,7 @@
+import threading
+from multiprocessing import get_context
+from queue import Empty
+
 from app.speech.recorder import record_audio_to_wav, delete_temp_file
 from app.speech.transcriber import SpeechTranscriber
 from app.nlu.parser import CommandParser
@@ -17,9 +21,21 @@ from app.dictation.text_actions import apply_dictation_phrase
 from app.chat.state import chat_state
 from app.ai.gateway import AIGateway
 from app.settings_service import settings_service
+from app.workers.resolve_worker import run_resolve_worker
+
+
+class OperationCancelled(Exception):
+    pass
 
 
 class AssistantPipeline:
+    LONG_RESOLVE_INTENTS = {
+        "generic_open",
+        "open_file",
+        "open_folder",
+        "open_app",
+    }
+
     def __init__(self):
         self.transcriber = SpeechTranscriber()
         self.parser = CommandParser()
@@ -28,6 +44,106 @@ class AssistantPipeline:
         self.presenter = ResponsePresenter()
         self.notifier = AssistantNotifier()
         self.ai_gateway = AIGateway()
+
+        self._ctx = get_context("spawn")
+        self._resolve_process = None
+        self._resolve_queue = None
+        self._resolve_lock = threading.RLock()
+
+    def _command_to_payload(self, command) -> dict:
+        return {
+            "text": getattr(command, "text", "")
+                    or getattr(command, "raw_text", "")
+                    or getattr(command, "source_text", "")
+                    or getattr(command, "normalized_text", ""),
+            "normalized_text": getattr(command, "normalized_text", ""),
+            "intent": getattr(command, "intent", ""),
+            "target_text": getattr(command, "target_text", ""),
+        }
+
+    def _clear_resolve_process(self):
+        with self._resolve_lock:
+            self._resolve_process = None
+            self._resolve_queue = None
+
+    def has_active_long_task(self) -> bool:
+        with self._resolve_lock:
+            return self._resolve_process is not None and self._resolve_process.is_alive()
+
+    def cancel_current_operation(self):
+        runtime_control.cancel_job()
+
+        with self._resolve_lock:
+            proc = self._resolve_process
+
+        if proc is None:
+            return
+
+        if not proc.is_alive():
+            self._clear_resolve_process()
+            return
+
+        try:
+            proc.terminate()
+            proc.join(timeout=1.5)
+            if proc.is_alive():
+                try:
+                    proc.kill()
+                    proc.join(timeout=1.0)
+                except Exception:
+                    pass
+        finally:
+            self._clear_resolve_process()
+
+    def _resolve_command(self, command, deep_search: bool = False):
+        if command.intent not in self.LONG_RESOLVE_INTENTS:
+            return self.resolver.resolve(command, deep_search=deep_search)
+
+        payload = self._command_to_payload(command)
+        result_queue = self._ctx.Queue()
+        process = self._ctx.Process(
+            target=run_resolve_worker,
+            args=(payload, deep_search, result_queue),
+            daemon=True,
+        )
+
+        with self._resolve_lock:
+            self._resolve_process = process
+            self._resolve_queue = result_queue
+
+        process.start()
+
+        try:
+            while True:
+                if runtime_control.is_cancelled():
+                    raise OperationCancelled()
+
+                try:
+                    status, data = result_queue.get(timeout=0.1)
+                except Empty:
+                    if not process.is_alive():
+                        if process.exitcode == 0:
+                            return ResolvedTarget(
+                                success=False,
+                                error="Не удалось получить результат поиска."
+                            )
+                        raise OperationCancelled()
+                    continue
+
+                if status == "ok":
+                    return data
+
+                return ResolvedTarget(
+                    success=False,
+                    error=f"Ошибка поиска: {data}"
+                )
+        finally:
+            if process.is_alive():
+                try:
+                    process.join(timeout=0.2)
+                except Exception:
+                    pass
+            self._clear_resolve_process()
 
     def _handle_command(self, command, deep_search: bool = False):
         if runtime_control.is_cancelled():
@@ -43,7 +159,16 @@ class AssistantPipeline:
                 self.notifier.say("Операция отменена.")
                 return None
 
-            resolved = self.resolver.resolve(command, deep_search=deep_search)
+            try:
+                resolved = self._resolve_command(command, deep_search=deep_search)
+            except OperationCancelled:
+                print("[PIPELINE] Долгая операция была отменена.")
+                return ExecutionResult(
+                    success=False,
+                    message="Операция отменена пользователем.",
+                    intent=command.intent
+                )
+
             print(f"[RESOLVED] success={resolved.success}, type={resolved.target_type}, path={resolved.target_path}")
 
             if runtime_control.is_cancelled():

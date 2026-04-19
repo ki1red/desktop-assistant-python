@@ -51,7 +51,7 @@ class StatusWidget(QWidget):
 
     def refresh(self):
         self.hotkey_label.setText(f"Горячая клавиша: {self.bg_service.hotkey}")
-        self.busy_label.setText(f"Выполняет команду: {'Да' if runtime_control.is_busy() else 'Нет'}")
+        self.busy_label.setText(f"Выполняет команду: {'Да' if self.bg_service.is_busy() else 'Нет'}")
         self.paused_label.setText(f"Ассистент на паузе: {'Да' if self.bg_service.is_paused else 'Нет'}")
         self.dictation_label.setText(f"Диктовка включена: {'Да' if dictation_state.is_enabled() else 'Нет'}")
         self.chat_label.setText(f"Режим общения включён: {'Да' if chat_state.is_enabled() else 'Нет'}")

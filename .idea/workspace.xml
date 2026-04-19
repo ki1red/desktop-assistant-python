@@ -4,12 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Использование ИИ внедрено. Пока что работает очень медленно.">
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Теперь ИИ работает более менее быстро.">
+      <change afterPath="$PROJECT_DIR$/app/windows/pipeline_worker.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/workers/resolve_worker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/ai/gateway.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/gateway.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/ai/ollama_health.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/ollama_health.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/speech/transcriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/transcriber.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assistant_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -218,7 +221,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776502817506</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Теперь ИИ работает более менее быстро.">
+      <option name="closed" value="true" />
+      <created>1776505045374</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1776505045374</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -249,7 +260,8 @@
     <MESSAGE value="Добавлено изменение настроек ассистента без перезапуска.&#10;Прерывание не работает." />
     <MESSAGE value="Подготовлена тчока под ИИ.&#10;Добавлена возможность менять настройки на горячую." />
     <MESSAGE value="Использование ИИ внедрено. Пока что работает очень медленно." />
-    <option name="LAST_COMMIT_MESSAGE" value="Использование ИИ внедрено. Пока что работает очень медленно." />
+    <MESSAGE value="Теперь ИИ работает более менее быстро." />
+    <option name="LAST_COMMIT_MESSAGE" value="Теперь ИИ работает более менее быстро." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
