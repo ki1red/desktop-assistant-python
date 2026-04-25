@@ -75,11 +75,14 @@
     ],
     "stop_phrases": [
       "выключи режим общения",
-      "хватит общ  аться",
+      "хватит общаться",
       "режим общения выключить",
       "заверши общение"
     ],
-    "speak_responses": true
+    "speak_responses": true,
+    "apply_to_all_commands": true,
+    "refine_dictation": true,
+    "command_refine_timeout_sec": 4
   },
   "assistant": {
     "announce_before_execution": true,

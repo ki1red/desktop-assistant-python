@@ -93,6 +93,10 @@
   },
   "ai": {
     "provider": "stub",
+    "enabled": true,
+    "apply_to_all_commands": true,
+    "refine_dictation": true,
+    "command_refine_timeout_sec": 4,
     "speak_responses": true,
     "ollama_host": "http://localhost:11434",
     "ollama_model": "gemma3:4b",

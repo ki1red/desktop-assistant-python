@@ -24,12 +24,8 @@ class SettingsService:
             return deepcopy(self._config.get(section_name, default))
 
     def reload(self):
-        with self._lock:
-            self._config = self._loader.get()
-            snapshot = deepcopy(self._config)
-
-        logger.info("Конфиг перезагружен.")
-        self._notify(snapshot)
+        self.loader = ConfigLoader()
+        self.config = self.loader.get()
 
     def update(self, mutate_fn):
         with self._lock:

@@ -4,29 +4,32 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Наконец-то добавлены отмены действий.">
-      <change afterPath="$PROJECT_DIR$/app/app_paths.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/bootstrap.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/indexing/index_state.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/assistant_app.spec" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Рабочая версия v1.0">
+      <change afterPath="$PROJECT_DIR$/app/dictation/ai_postprocess.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/logging/export_logs.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/logging/ui_logger.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/nlu/resources_loader.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/nlu/text_cleanup.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/nlu/command_verbs.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/nlu/dictation_replacements.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/nlu/extension_aliases.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/nlu/filler_words.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/nlu/polite_words.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/installer.iss" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ai/gateway.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/gateway.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ai/providers/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/providers/base.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/providers/ollama_provider.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ai/providers/stub_provider.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/providers/stub_provider.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/background_runner.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/config_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config_loader.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/speech/transcriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/transcriber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/voice/speaker.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/voice/speaker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/index_rebuild.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/index_rebuild.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/voice_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/voice_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/bootstrap.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/bootstrap.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/nlu/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/nlu/parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/settings_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/settings_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/logs_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/logs_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/assistant_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build_index.py" beforeDir="false" afterPath="$PROJECT_DIR$/build_index.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/debug_apps.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/desktop_app.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/run_background.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,6 +44,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="releases" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -70,27 +78,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.app_index.executor": "Run",
-    "Python.app_runtime.executor": "Run",
-    "Python.assistant_app.executor": "Run",
-    "Python.build_index.executor": "Run",
-    "Python.debug_apps.executor": "Run",
-    "Python.desktop_app.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.ollama_health.executor": "Run",
-    "Python.ollama_model_discovery.executor": "Run",
-    "Python.resolver.executor": "Run",
-    "Python.run_background.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.app_index.executor&quot;: &quot;Run&quot;,
+    &quot;Python.app_runtime.executor&quot;: &quot;Run&quot;,
+    &quot;Python.assistant_app.executor&quot;: &quot;Run&quot;,
+    &quot;Python.build_index.executor&quot;: &quot;Run&quot;,
+    &quot;Python.debug_apps.executor&quot;: &quot;Run&quot;,
+    &quot;Python.desktop_app.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ollama_health.executor&quot;: &quot;Run&quot;,
+    &quot;Python.ollama_model_discovery.executor&quot;: &quot;Run&quot;,
+    &quot;Python.resolver.executor&quot;: &quot;Run&quot;,
+    &quot;Python.run_background.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\druzh\PycharmProjects\PythonProject\app" />
@@ -255,7 +263,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776578990425</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="Рабочая версия v1.0">
+      <option name="closed" value="true" />
+      <created>1777103485286</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1777103485286</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -288,7 +304,8 @@
     <MESSAGE value="Использование ИИ внедрено. Пока что работает очень медленно." />
     <MESSAGE value="Теперь ИИ работает более менее быстро." />
     <MESSAGE value="Наконец-то добавлены отмены действий." />
-    <option name="LAST_COMMIT_MESSAGE" value="Наконец-то добавлены отмены действий." />
+    <MESSAGE value="Рабочая версия v1.0" />
+    <option name="LAST_COMMIT_MESSAGE" value="Рабочая версия v1.0" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

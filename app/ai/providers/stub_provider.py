@@ -3,19 +3,21 @@ from app.ai.providers.base import BaseAIProvider
 
 class StubAIProvider(BaseAIProvider):
     def reply(self, user_text: str) -> str:
-        text = user_text.strip()
-        low = text.lower()
+        return "ИИ сейчас недоступен. Используется безопасный режим без интеллектуальной обработки."
 
-        if not text:
-            return "Я ничего не расслышал."
+    def refine_command(self, user_text: str, rules: dict | None = None) -> dict | None:
+        return {
+            "normalized_text": user_text.strip(),
+            "intent_hint": None,
+            "target_hint": None,
+            "entity_type_hint": None,
+            "comment": "stub",
+            "confidence": 0.0
+        }
 
-        if "блендер" in low:
-            return "Похоже, ты говоришь про Blender. Позже сюда можно будет подключить внешний ИИ и полноценные инструменты."
-        if "папк" in low or "файл" in low:
-            return "Я могу обсудить это в режиме общения, а для точного открытия лучше использовать обычный командный режим."
-        if "кто ты" in low:
-            return "Я локальный ассистент. Сейчас у меня включён заготовочный режим общения."
-        if "что ты умеешь" in low:
-            return "Я умею выполнять локальные команды, искать в браузере, открывать музыку, работать с диктовкой и базово поддерживаю режим общения."
-
-        return f"Я услышал: {text}. Сейчас это заготовка AI-режима. Позже сюда подключим внешний ИИ."
+    def refine_dictation(self, user_text: str, rules: dict | None = None, context: list[str] | None = None) -> dict | None:
+        return {
+            "normalized_text": user_text.strip(),
+            "comment": "stub",
+            "confidence": 0.0
+        }

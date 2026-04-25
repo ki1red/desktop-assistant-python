@@ -11,6 +11,7 @@ from app.windows.custom_commands_widget import CustomCommandsWidget
 from app.windows.status_widget import StatusWidget
 from app.windows.background_settings_widget import BackgroundSettingsWidget
 from app.windows.ai_widget import AISettingsWidget
+from app.logging.ui_logger import log_ui_action
 
 
 class AssistantMainWindow(QMainWindow):
@@ -20,6 +21,8 @@ class AssistantMainWindow(QMainWindow):
         self.resize(1250, 860)
 
         tabs = QTabWidget()
+        self.tabs = tabs
+        self.tabs.currentChanged.connect(self.on_tab_changed)
         tabs.addTab(StatusWidget(bg_service), "Статус")
         tabs.addTab(BackgroundSettingsWidget(), "Фоновый режим")
         tabs.addTab(AISettingsWidget(), "AI")
@@ -34,6 +37,11 @@ class AssistantMainWindow(QMainWindow):
 
         self.setCentralWidget(tabs)
 
+    def on_tab_changed(self, index: int):
+        title = self.tabs.tabText(index)
+        log_ui_action("MainWindow", "switch_tab", title)
+
     def closeEvent(self, event):
+        log_ui_action("MainWindow", "hide_to_tray")
         self.hide()
         event.ignore()

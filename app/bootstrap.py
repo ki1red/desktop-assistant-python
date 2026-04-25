@@ -7,6 +7,7 @@ from app.indexing.indexer import rebuild_index, get_index_count
 from app.speech.recorder import cleanup_old_temp_files
 from app.indexing.index_state import index_state
 from app.logger import get_logger
+from app.settings_service import settings_service
 
 logger = get_logger("bootstrap")
 
@@ -52,6 +53,8 @@ def bootstrap_app_environment():
 
     loader = ConfigLoader()
     loader.save(loader.get())
+
+    settings_service.reload()
 
     init_db()
     cleanup_old_temp_files()
