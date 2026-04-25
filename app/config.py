@@ -3,17 +3,16 @@ from pathlib import Path
 from app.settings_service import settings_service
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
 _config = settings_service.get_all()
 
-TEMP_DIR = BASE_DIR / _config["paths"]["temp_dir"]
-TEMP_DIR.mkdir(exist_ok=True)
+TEMP_DIR = Path(_config["paths"]["temp_dir"])
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
-DATA_DIR = BASE_DIR / _config["paths"]["data_dir"]
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR = Path(_config["paths"]["data_dir"])
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-DB_PATH = BASE_DIR / _config["paths"]["database_path"]
+DB_PATH = Path(_config["paths"]["database_path"])
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 AUDIO_SAMPLE_RATE = _config["audio"]["sample_rate"]
 AUDIO_CHANNELS = _config["audio"]["channels"]
@@ -44,6 +43,7 @@ VOICE_SETTINGS = _config["voice"]
 
 def reload_config():
     global _config
+    global TEMP_DIR, DATA_DIR, DB_PATH
     global AUDIO_SAMPLE_RATE, AUDIO_CHANNELS, AUDIO_CHUNK_SIZE
     global MAX_RECORD_SECONDS, MIN_RECORD_SECONDS, SILENCE_DURATION_STOP_SEC, SILENCE_THRESHOLD
     global WHISPER_MODEL_SIZE, WHISPER_COMPUTE_TYPE
@@ -53,6 +53,15 @@ def reload_config():
     global PRIORITY_ROOTS_CONFIG, BACKGROUND_SETTINGS, PROVIDER_SETTINGS, VOICE_SETTINGS
 
     _config = settings_service.get_all()
+
+    TEMP_DIR = Path(_config["paths"]["temp_dir"])
+    TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    DATA_DIR = Path(_config["paths"]["data_dir"])
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    DB_PATH = Path(_config["paths"]["database_path"])
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     AUDIO_SAMPLE_RATE = _config["audio"]["sample_rate"]
     AUDIO_CHANNELS = _config["audio"]["channels"]

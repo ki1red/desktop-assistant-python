@@ -67,17 +67,28 @@ $synth.Speak('{escaped}');
     def _speak_windows(self, text: str):
         script = self._build_ps_script(text)
 
+        startupinfo = None
+        creationflags = 0
+
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
         subprocess.run(
             [
                 "powershell",
                 "-NoProfile",
                 "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
                 "-Command",
                 script
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            check=False
+            check=False,
+            startupinfo=startupinfo,
+            creationflags=creationflags
         )
 
     def _speak_platform(self, text: str):

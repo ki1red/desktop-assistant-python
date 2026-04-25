@@ -4,16 +4,29 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Теперь ИИ работает более менее быстро.">
-      <change afterPath="$PROJECT_DIR$/app/windows/pipeline_worker.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/workers/resolve_worker.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Наконец-то добавлены отмены действий.">
+      <change afterPath="$PROJECT_DIR$/app/app_paths.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/bootstrap.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/indexing/index_state.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/assistant_app.spec" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/background_runner.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/config_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/config_loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/speech/transcriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/transcriber.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/voice/speaker.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/voice/speaker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/index_rebuild.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/index_rebuild.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/voice_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/voice_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/assistant_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build_index.py" beforeDir="false" afterPath="$PROJECT_DIR$/build_index.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/debug_apps.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/desktop_app.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run_background.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,9 +88,14 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "vcs.Git"
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\druzh\PycharmProjects\PythonProject\app" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -229,7 +247,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776505045374</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Наконец-то добавлены отмены действий.">
+      <option name="closed" value="true" />
+      <created>1776578990425</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1776578990425</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -261,7 +287,8 @@
     <MESSAGE value="Подготовлена тчока под ИИ.&#10;Добавлена возможность менять настройки на горячую." />
     <MESSAGE value="Использование ИИ внедрено. Пока что работает очень медленно." />
     <MESSAGE value="Теперь ИИ работает более менее быстро." />
-    <option name="LAST_COMMIT_MESSAGE" value="Теперь ИИ работает более менее быстро." />
+    <MESSAGE value="Наконец-то добавлены отмены действий." />
+    <option name="LAST_COMMIT_MESSAGE" value="Наконец-то добавлены отмены действий." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

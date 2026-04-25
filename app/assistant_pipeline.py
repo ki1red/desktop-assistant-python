@@ -2,7 +2,13 @@ import threading
 from multiprocessing import get_context
 from queue import Empty
 
-from app.speech.recorder import record_audio_to_wav, delete_temp_file
+from app.logger import get_logger
+from app.speech.recorder import (
+    record_audio_to_wav,
+    delete_temp_file,
+    MicrophoneSelectionError,
+    NoMicrophoneSignalError,
+)
 from app.speech.transcriber import SpeechTranscriber
 from app.nlu.parser import CommandParser
 from app.resolver.resolver import TargetResolver
@@ -23,6 +29,7 @@ from app.ai.gateway import AIGateway
 from app.settings_service import settings_service
 from app.workers.resolve_worker import run_resolve_worker
 
+logger = get_logger("pipeline")
 
 class OperationCancelled(Exception):
     pass
@@ -320,9 +327,23 @@ class AssistantPipeline:
 
     def run_once(self):
         print("[PIPELINE] Начало цикла обработки команды.")
-        wav_path = record_audio_to_wav()
+        wav_path = None
 
         try:
+            wav_path = None
+
+            try:
+                wav_path = record_audio_to_wav()
+            except (MicrophoneSelectionError, NoMicrophoneSignalError) as e:
+                msg = str(e)
+                logger.warning("Ошибка микрофона: %s", msg)
+                self.notifier.say(msg)
+                return None
+            except Exception as e:
+                logger.exception("Не удалось начать запись: %s", e)
+                self.notifier.say("Не удалось начать запись с микрофона.")
+                return None
+
             if runtime_control.is_cancelled():
                 print("[PIPELINE] Операция отменена пользователем сразу после записи.")
                 self.notifier.say("Операция отменена.")
@@ -335,6 +356,7 @@ class AssistantPipeline:
                 stt_result = self.transcriber.transcribe(wav_path)
             except Exception as e:
                 print(f"[STT][ERROR] Не удалось распознать аудио: {e}")
+                logger.exception("Ошибка распознавания аудио: %s", e)
                 if not dictation_state.is_enabled() and not chat_state.is_enabled():
                     self.notifier.say("Не удалось распознать аудио.")
                 return None
@@ -346,6 +368,8 @@ class AssistantPipeline:
                 return None
 
             print(f"[STT] {stt_result.text}")
+            logger.info("Распознанный текст: %s", stt_result.text)
+            logger.info("Язык распознавания: %s", stt_result.language)
 
             if dictation_state.is_enabled():
                 return self._handle_dictation(stt_result.text)
@@ -384,6 +408,6 @@ class AssistantPipeline:
             return self._handle_command(command, deep_search=False)
 
         finally:
-            if TEMP_CLEANUP_SETTINGS.get("delete_record_after_transcribe", True):
+            if wav_path and TEMP_CLEANUP_SETTINGS.get("delete_record_after_transcribe", True):
                 delete_temp_file(wav_path)
             print("[PIPELINE] Цикл обработки завершён.")
