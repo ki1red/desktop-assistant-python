@@ -331,7 +331,7 @@ class AISettingsWidget(QWidget):
         root.addWidget(self.advanced_panel)
         root.addStretch(1)
 
-        self.save_bar = FloatingSaveBar(self, "Сохранить настройки ИИ")
+        self.save_bar = FloatingSaveBar(self, "Сохранить")
         self.save_bar.clicked.connect(self.save_settings)
 
     def _connect_change_signals(self):

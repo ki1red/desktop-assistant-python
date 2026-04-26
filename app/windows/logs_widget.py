@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -16,6 +16,7 @@ from PySide6.QtGui import QTextCursor
 
 from app.logging_config import LOG_FILE, LOG_DIR
 from app.logging.export_logs import build_logs_archive, default_logs_archive_name
+from app.windows.floating_save_bar import FloatingSaveBar
 from app.windows.ui_kit import make_page_title, InfoCard
 
 
@@ -31,7 +32,6 @@ class LogsWidget(QWidget):
         super().__init__()
 
         self._last_content = ""
-        self._force_scroll_to_bottom = True
 
         self._build_ui()
 
@@ -124,8 +124,15 @@ class LogsWidget(QWidget):
 
         root.addWidget(self.text, 1)
 
+        self.save_bar = FloatingSaveBar(self, "")
+        self.save_bar.clicked.connect(lambda: None)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "save_bar"):
+            self.save_bar.reposition()
+
     def on_tab_activated(self):
-        # При возврате на вкладку можно снова автоматически перейти вниз.
         self.refresh_logs(force_scroll_to_bottom=True)
 
     def on_open_folder_clicked(self):
@@ -155,11 +162,7 @@ class LogsWidget(QWidget):
             saved_path = build_logs_archive(path)
             log_ui_action("Logs", "export_logs", str(saved_path))
 
-            QMessageBox.information(
-                self,
-                "Готово",
-                f"Архив со всеми логами сохранён:\n{saved_path}"
-            )
+            self.save_bar.show_saved("Успешно скачано")
 
         except Exception as e:
             QMessageBox.warning(
@@ -182,8 +185,6 @@ class LogsWidget(QWidget):
             scrollbar = self.text.verticalScrollBar()
             old_value = scrollbar.value()
             old_maximum = scrollbar.maximum()
-
-            # Пользователь считается находящимся внизу, если скролл почти в самом конце.
             was_at_bottom = old_value >= old_maximum - 8
 
             self.text.setPlainText(content)
@@ -192,7 +193,6 @@ class LogsWidget(QWidget):
             if force_scroll_to_bottom or was_at_bottom:
                 self.text.moveCursor(QTextCursor.End)
             else:
-                # Если пользователь читает середину логов, сохраняем позицию.
                 scrollbar.setValue(min(old_value, scrollbar.maximum()))
 
         except Exception as e:

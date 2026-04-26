@@ -9,11 +9,23 @@ from app.windows.history_widget import HistoryWidget
 from app.windows.custom_commands_widget import CustomCommandsWidget
 from app.windows.status_widget import StatusWidget
 from app.windows.ai_widget import AISettingsWidget
+from app.windows.assistant_widget import AssistantWidget
+from app.windows.app_settings_widget import AppSettingsWidget
 from app.windows.tooltip_manager import install_custom_tooltips
+from app.settings_service import settings_service
 from app.logger import get_logger
 
 
 logger = get_logger("ui")
+
+
+SYSTEM_TABS = {
+    "Быстрые цели",
+    "Папки",
+    "Провайдеры",
+    "История",
+    "Пользовательские команды",
+}
 
 
 class FastToolTipStyle(QProxyStyle):
@@ -41,11 +53,15 @@ class AssistantMainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self._on_tab_changed)
         self._previous_tab_index = -1
+        self._tab_indexes = {}
 
         self._add_tab("Состояние", lambda: StatusWidget(bg_service))
         self._add_tab("ИИ", AISettingsWidget)
         self._add_tab("Аудио", AudioSettingsWidget)
+        self._add_tab("Ассистент", AssistantWidget)
+        self._add_tab("Настройки", AppSettingsWidget)
         self._add_tab("Логи", LogsWidget)
+
         self._add_tab("Быстрые цели", QuickTargetsWidget)
         self._add_tab("Папки", PathsWidget)
         self._add_tab("Провайдеры", ProvidersWidget)
@@ -53,6 +69,9 @@ class AssistantMainWindow(QMainWindow):
         self._add_tab("Пользовательские команды", CustomCommandsWidget)
 
         self.setCentralWidget(self.tabs)
+
+        settings_service.subscribe(self._on_settings_changed)
+        self._apply_system_tabs_visibility(settings_service.get_all())
 
         logger.info("UI | MainWindow | init_done")
 
@@ -65,8 +84,6 @@ class AssistantMainWindow(QMainWindow):
         if not isinstance(current_style, FastToolTipStyle):
             app.setStyle(FastToolTipStyle(current_style))
 
-        # Полностью заменяем стандартные Qt/Windows tooltip на собственные.
-        # Это убирает наследование жирного/крупного шрифта от QLabel.
         install_custom_tooltips(app)
 
     def _apply_window_style(self):
@@ -79,6 +96,10 @@ class AssistantMainWindow(QMainWindow):
                 border: 1px solid #d6d9e0;
                 background: #ffffff;
                 border-radius: 10px;
+            }
+            
+            QTabWidget::tab-bar {
+                alignment: center;
             }
 
             QTabBar::tab {
@@ -149,11 +170,28 @@ class AssistantMainWindow(QMainWindow):
 
         try:
             widget = factory()
-            self.tabs.addTab(widget, title)
+            index = self.tabs.addTab(widget, title)
+            self._tab_indexes[title] = index
             logger.info("UI | MainWindow | create_tab_done | %s", title)
         except Exception as e:
             logger.exception("UI | MainWindow | create_tab_failed | %s | %s", title, e)
             raise
+
+    def _on_settings_changed(self, config_snapshot: dict):
+        self._apply_system_tabs_visibility(config_snapshot)
+
+    def _apply_system_tabs_visibility(self, config_snapshot: dict):
+        ui = config_snapshot.get("ui", {})
+        show_system_tabs = bool(ui.get("show_system_tabs", False))
+
+        for title in SYSTEM_TABS:
+            index = self._tab_indexes.get(title)
+            if index is not None:
+                self.tabs.setTabVisible(index, show_system_tabs)
+
+        current_index = self.tabs.currentIndex()
+        if current_index >= 0 and not self.tabs.isTabVisible(current_index):
+            self.tabs.setCurrentIndex(0)
 
     def _on_tab_changed(self, index: int):
         if self._previous_tab_index >= 0 and self._previous_tab_index != index:

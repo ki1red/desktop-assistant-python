@@ -4,6 +4,7 @@ from app.windows.main_window import AssistantMainWindow
 from app.windows.tray_controller import TrayController
 from app.windows.background_service import BackgroundAssistantService
 from app.events.notifier import AssistantNotifier
+from app.settings_service import settings_service
 from app.logger import get_logger
 
 
@@ -17,8 +18,6 @@ class AppRuntime:
         logger.info("AppRuntime.__init__ | create QApplication")
         self.qt_app = QApplication([])
 
-        # Важно для tray-приложений:
-        # если окно скрыто или закрыто крестиком, приложение не должно завершаться.
         self.qt_app.setQuitOnLastWindowClosed(False)
 
         logger.info("AppRuntime.__init__ | create notifier")
@@ -29,8 +28,6 @@ class AppRuntime:
 
         self._bg_started = False
 
-        # Фоновый listener запускаем до создания тяжёлого UI.
-        # Благодаря ленивому созданию pipeline этот этап теперь не должен грузить Whisper.
         logger.info("AppRuntime.__init__ | start background service before UI")
         self._start_background_service_safe()
 
@@ -56,16 +53,20 @@ class AppRuntime:
     def start(self):
         logger.info("Запуск AppRuntime.")
 
-        # На всякий случай повторно проверяем, что фоновый сервис запущен.
         self._start_background_service_safe()
-
         self.tray.show()
 
-        # Пока НЕ скрываем приложение в трей при запуске.
-        # Окно должно открываться сразу, чтобы пользователь не терял доступ к настройкам.
-        self.window.showNormal()
-        self.window.raise_()
-        self.window.activateWindow()
+        cfg = settings_service.get_all()
+        ui = cfg.get("ui", {})
+        hide_window_on_startup = bool(ui.get("hide_window_on_startup", False))
+
+        if hide_window_on_startup:
+            logger.info("AppRuntime | startup window hidden by setting")
+            self.window.hide()
+        else:
+            self.window.showNormal()
+            self.window.raise_()
+            self.window.activateWindow()
 
         logger.info("AppRuntime | Qt event loop start")
         return self.qt_app.exec()

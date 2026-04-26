@@ -4,13 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает.">
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске.">
+      <change afterPath="$PROJECT_DIR$/app/windows/app_settings_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/windows/assistant_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/windows/startup_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/logging/export_logs.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/logging/export_logs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/logging_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/logging_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/app_runtime.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/app_runtime.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/logs_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/logs_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assistant_app.spec" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.spec" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -293,7 +297,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777196817319</updated>
     </task>
-    <option name="localTasksCounter" value="25" />
+    <task id="LOCAL-00025" summary="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске.">
+      <option name="closed" value="true" />
+      <created>1777202689968</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1777202689968</updated>
+    </task>
+    <option name="localTasksCounter" value="26" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -332,7 +344,8 @@
     <MESSAGE value="Немного улучшена работа с пустыми командами. Больше не вылезают ошибки на пустых голосовых." />
     <MESSAGE value="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает." />
     <MESSAGE value="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает." />
-    <option name="LAST_COMMIT_MESSAGE" value="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает." />
+    <MESSAGE value="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске." />
+    <option name="LAST_COMMIT_MESSAGE" value="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

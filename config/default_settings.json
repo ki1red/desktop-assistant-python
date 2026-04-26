@@ -54,7 +54,10 @@
     "language": "ru",
     "announce_before_execution": true,
     "announce_after_execution": true,
-    "debug_candidates": true
+    "debug_candidates": true,
+    "activation_mode": "hotkey",
+    "voice_activation_phrase": "ассистент",
+    "comment_actions": true
   },
   "priority_roots": {
     "cwd": true,
@@ -88,6 +91,8 @@
     "rate": 185,
     "volume": 1.0,
     "heartbeat_interval_sec": 8,
+    "voice_id": "",
+    "voice_name": "",
     "phrases": {
       "listening": [
         "Слушаю.",
@@ -118,6 +123,13 @@
         "Принято, учту как неудачный вариант."
       ]
     }
+  },
+  "ui": {
+    "hide_window_on_startup": false,
+    "show_system_tabs": false
+  },
+  "startup": {
+    "run_with_system": false
   },
   "ai": {
     "provider": "stub",

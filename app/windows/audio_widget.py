@@ -258,7 +258,7 @@ class AudioSettingsWidget(QWidget):
         root.addWidget(self.advanced_panel)
         root.addStretch(1)
 
-        self.save_bar = FloatingSaveBar(self, "Сохранить настройки аудио")
+        self.save_bar = FloatingSaveBar(self, "Сохранить")
         self.save_bar.clicked.connect(self.save_settings)
 
         self.timer = QTimer(self)
@@ -685,7 +685,7 @@ class AudioSettingsWidget(QWidget):
         )
 
         self.refresh_status()
-        self.save_bar.show_saved("Автонастройка сохранена!")
+        self.save_bar.show_saved("Успешно настроено")
 
         # После завершения автонастройки тест микрофона больше не нужен.
         QTimer.singleShot(900, self._stop_meter)
