@@ -1,5 +1,12 @@
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QApplication
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QApplication,
+    QSizePolicy,
+)
 
 
 class FloatingSaveBar(QFrame):
@@ -16,17 +23,23 @@ class FloatingSaveBar(QFrame):
         self.setFixedHeight(76)
         self.hide()
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(22, 12, 22, 12)
-        layout.setSpacing(18)
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(22, 12, 22, 12)
+        self.layout.setSpacing(18)
 
         self.label = QLabel("Есть несохранённые изменения")
+        self.label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
         self.button = QPushButton(button_text)
         self.button.clicked.connect(self.clicked.emit)
 
-        layout.addWidget(self.label)
-        layout.addStretch(1)
-        layout.addWidget(self.button)
+        # Важно:
+        # label занимает всё свободное место.
+        # Поэтому в saved-режиме, когда кнопка скрыта, текст реально центрируется
+        # по всей всплывающей панели, а не по маленькому QLabel слева.
+        self.layout.addWidget(self.label, 1)
+        self.layout.addWidget(self.button, 0)
 
         self._apply_dirty_style()
 
@@ -72,7 +85,7 @@ class FloatingSaveBar(QFrame):
             }
 
             QLabel {
-                font-size: 24px;
+                font-size: 26px;
                 font-weight: 800;
                 color: #16723a;
             }
@@ -98,9 +111,15 @@ class FloatingSaveBar(QFrame):
         if dirty:
             self._mode = "dirty"
             self._apply_dirty_style()
+
+            self.layout.setContentsMargins(22, 12, 22, 12)
+
             self.label.setText("Есть несохранённые изменения")
+            self.label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+
             self.button.setText(self._button_text)
             self.button.setVisible(True)
+
             self.setVisible(True)
             self.reposition()
             self.raise_()
@@ -113,8 +132,13 @@ class FloatingSaveBar(QFrame):
         self._mode = "saved"
 
         self._apply_saved_style()
-        self.label.setText(message)
+
+        self.layout.setContentsMargins(0, 12, 0, 12)
+
         self.button.setVisible(False)
+
+        self.label.setText(message)
+        self.label.setAlignment(Qt.AlignCenter)
 
         self.setVisible(True)
         self.reposition()

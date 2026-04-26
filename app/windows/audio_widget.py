@@ -559,10 +559,18 @@ class AudioSettingsWidget(QWidget):
 
         with self._meter_lock:
             self._latest_level = 0
+            self._calibration_active = False
+            self._calibration_samples = []
 
         self.meter_bar.setValue(0)
         self.meter_state_label.setText("Тест микрофона: выключен")
+        self.meter_hint_label.setText("Уровень сигнала пока не оценён.")
         self.test_mic_btn.setText("Проверить микрофон")
+
+        # Теперь блок со шкалой полностью исчезает после остановки теста
+        # или завершения автонастройки.
+        self.meter_panel.setVisible(False)
+
         self.refresh_status()
 
     def _update_meter_ui(self):
@@ -626,6 +634,7 @@ class AudioSettingsWidget(QWidget):
                 "Не удалось услышать сигнал с микрофона. Проверьте устройство и попробуйте снова."
             )
             self.meter_state_label.setText("Автонастройка: не удалось услышать микрофон")
+            self._stop_meter()
             return
 
         avg_level = sum(useful) / len(useful)
@@ -677,6 +686,9 @@ class AudioSettingsWidget(QWidget):
 
         self.refresh_status()
         self.save_bar.show_saved("Автонастройка сохранена!")
+
+        # После завершения автонастройки тест микрофона больше не нужен.
+        QTimer.singleShot(900, self._stop_meter)
 
     def save_settings(self):
         state = self._capture_form_state()

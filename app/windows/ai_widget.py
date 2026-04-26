@@ -25,6 +25,26 @@ from app.windows.floating_save_bar import FloatingSaveBar
 logger = get_logger("ai_widget")
 
 
+AI_PROVIDER_OPTIONS = [
+    ("stub", "Без модели / заглушка"),
+    ("ollama", "Ollama — локально"),
+    ("openai_compatible", "OpenAI-compatible API"),
+    ("openai", "OpenAI"),
+    ("deepseek", "DeepSeek"),
+    ("yandexgpt", "YandexGPT"),
+]
+
+SUPPORTED_RUNTIME_PROVIDERS = {"stub", "ollama"}
+
+DEFAULT_ENDPOINTS = {
+    "ollama": "http://localhost:11434",
+    "openai_compatible": "",
+    "openai": "https://api.openai.com/v1",
+    "deepseek": "https://api.deepseek.com",
+    "yandexgpt": "https://llm.api.cloud.yandex.net",
+}
+
+
 class OllamaCheckWorker(QObject):
     finished = Signal(bool, str)
 
@@ -172,7 +192,7 @@ class AISettingsWidget(QWidget):
         self.model_label = QLabel()
         self.model_label.setStyleSheet("font-size: 24px; font-weight: 500;")
         self.model_label.setToolTip(
-            "Здесь показывается только доступность модели. Название модели и провайдер находятся в расширенных настройках."
+            "Здесь показывается только доступность модели. Конкретный провайдер, адрес API и название модели находятся в расширенных настройках."
         )
 
         self.apply_to_all_checkbox = QCheckBox("Включить ассистенту интеллект на всё")
@@ -230,45 +250,64 @@ class AISettingsWidget(QWidget):
         self.enabled_checkbox = QCheckBox("Включить ИИ-режим")
 
         self.provider_combo = QComboBox()
-        self.provider_combo.addItems(["stub", "ollama"])
+        for key, label in AI_PROVIDER_OPTIONS:
+            self.provider_combo.addItem(label, key)
 
-        self.ollama_host_edit = QLineEdit()
-        self.ollama_models_path_edit = QLineEdit()
+        self.provider_endpoint_edit = QLineEdit()
+        self.provider_endpoint_edit.setPlaceholderText("Например: http://localhost:11434 или https://api.example.com/v1")
 
-        self.ollama_model_combo = QComboBox()
-        self.ollama_model_combo.setEditable(True)
-        self.ollama_model_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.api_key_edit = QLineEdit()
+        self.api_key_edit.setEchoMode(QLineEdit.Password)
+        self.api_key_edit.setPlaceholderText("Для удалённых провайдеров. Для Ollama обычно не нужен.")
 
-        self.chat_ollama_model_combo = QComboBox()
-        self.chat_ollama_model_combo.setEditable(True)
-        self.chat_ollama_model_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.command_model_combo = QComboBox()
+        self.command_model_combo.setEditable(True)
+        self.command_model_combo.setInsertPolicy(QComboBox.NoInsert)
+
+        self.chat_model_combo = QComboBox()
+        self.chat_model_combo.setEditable(True)
+        self.chat_model_combo.setInsertPolicy(QComboBox.NoInsert)
 
         self.refresh_models_btn = QPushButton("Обновить список моделей")
         self.refresh_models_btn.clicked.connect(self.load_models)
 
-        main_model_row = QHBoxLayout()
-        main_model_row.addWidget(self.ollama_model_combo)
-        main_model_row.addWidget(self.refresh_models_btn)
+        command_model_row = QHBoxLayout()
+        command_model_row.addWidget(self.command_model_combo)
+        command_model_row.addWidget(self.refresh_models_btn)
 
         chat_model_row = QHBoxLayout()
-        chat_model_row.addWidget(self.chat_ollama_model_combo)
+        chat_model_row.addWidget(self.chat_model_combo)
+
+        self.ollama_models_path_edit = QLineEdit()
+        self.ollama_models_path_edit.setPlaceholderText("Необязательно. Используется только для локального поиска моделей Ollama.")
 
         self.wake_edit = QLineEdit()
         self.stop_edit = QLineEdit()
 
         self.speak_checkbox = QCheckBox("Озвучивать ответы")
 
+        self.future_provider_hint = QLabel(
+            "Удалённые провайдеры подготовлены в интерфейсе, но в текущем AI gateway полностью работают только Stub и Ollama."
+        )
+        self.future_provider_hint.setWordWrap(True)
+        self.future_provider_hint.setStyleSheet("font-size: 14px; color: #687386;")
+        self.future_provider_hint.setToolTip(
+            "Это заготовка под будущую архитектуру: OpenAI-compatible API, OpenAI, DeepSeek, YandexGPT и другие провайдеры."
+        )
+
         form.addRow("", self.enabled_checkbox)
         form.addRow("Провайдер:", self.provider_combo)
-        form.addRow("Ollama host:", self.ollama_host_edit)
+        form.addRow("Адрес сервера / API:", self.provider_endpoint_edit)
+        form.addRow("API-ключ:", self.api_key_edit)
+        form.addRow("Модель для команд:", command_model_row)
+        form.addRow("Модель для общения:", chat_model_row)
         form.addRow("Путь к моделям Ollama:", self.ollama_models_path_edit)
-        form.addRow("Основная модель:", main_model_row)
-        form.addRow("Быстрая модель для диалога:", chat_model_row)
         form.addRow("Фразы включения:", self.wake_edit)
         form.addRow("Фразы выключения:", self.stop_edit)
         form.addRow("", self.speak_checkbox)
 
         advanced_layout.addLayout(form)
+        advanced_layout.addWidget(self.future_provider_hint)
 
         self.check_status_label = QLabel("")
         self.check_status_label.setWordWrap(True)
@@ -277,7 +316,7 @@ class AISettingsWidget(QWidget):
 
         buttons_row = QHBoxLayout()
 
-        self.check_server_btn = QPushButton("Проверить сервер")
+        self.check_server_btn = QPushButton("Проверить сервер/API")
         self.check_server_btn.clicked.connect(self.check_server)
 
         self.check_model_btn = QPushButton("Проверить модель")
@@ -298,11 +337,12 @@ class AISettingsWidget(QWidget):
     def _connect_change_signals(self):
         self.apply_to_all_checkbox.stateChanged.connect(self._update_save_buttons)
         self.enabled_checkbox.stateChanged.connect(self._update_save_buttons)
-        self.provider_combo.currentTextChanged.connect(self._update_save_buttons)
-        self.ollama_host_edit.textChanged.connect(self._update_save_buttons)
+        self.provider_combo.currentIndexChanged.connect(self._on_provider_changed)
+        self.provider_endpoint_edit.textChanged.connect(self._update_save_buttons)
+        self.api_key_edit.textChanged.connect(self._update_save_buttons)
+        self.command_model_combo.currentTextChanged.connect(self._update_save_buttons)
+        self.chat_model_combo.currentTextChanged.connect(self._update_save_buttons)
         self.ollama_models_path_edit.textChanged.connect(self._update_save_buttons)
-        self.ollama_model_combo.currentTextChanged.connect(self._update_save_buttons)
-        self.chat_ollama_model_combo.currentTextChanged.connect(self._update_save_buttons)
         self.wake_edit.textChanged.connect(self._update_save_buttons)
         self.stop_edit.textChanged.connect(self._update_save_buttons)
         self.speak_checkbox.stateChanged.connect(self._update_save_buttons)
@@ -325,6 +365,53 @@ class AISettingsWidget(QWidget):
         if self._dirty:
             self._load_from_settings(reset_dirty=True)
 
+    def _provider_key(self) -> str:
+        return self.provider_combo.currentData() or "stub"
+
+    def _set_provider_key(self, key: str):
+        for i in range(self.provider_combo.count()):
+            if self.provider_combo.itemData(i) == key:
+                self.provider_combo.setCurrentIndex(i)
+                return
+
+        self.provider_combo.setCurrentIndex(0)
+
+    def _on_provider_changed(self):
+        if self._loading_controls:
+            return
+
+        provider = self._provider_key()
+
+        if not self.provider_endpoint_edit.text().strip():
+            default_endpoint = DEFAULT_ENDPOINTS.get(provider, "")
+            if default_endpoint:
+                self.provider_endpoint_edit.setText(default_endpoint)
+
+        self._update_provider_controls()
+        self._update_save_buttons()
+
+    def _update_provider_controls(self):
+        provider = self._provider_key()
+
+        ollama_selected = provider == "ollama"
+        remote_selected = provider not in {"stub", "ollama"}
+
+        self.refresh_models_btn.setEnabled(ollama_selected)
+        self.api_key_edit.setEnabled(remote_selected)
+
+        if provider == "stub":
+            self.future_provider_hint.setText(
+                "Выбрана заглушка. Настоящая языковая модель не используется."
+            )
+        elif provider == "ollama":
+            self.future_provider_hint.setText(
+                "Ollama работает локально. Для неё обычно нужен адрес http://localhost:11434 и выбранная локальная модель."
+            )
+        else:
+            self.future_provider_hint.setText(
+                "Этот провайдер подготовлен в настройках, но выполнение команд через него ещё нужно подключить в AI gateway."
+            )
+
     def _set_combo_text(self, combo: QComboBox, text: str, add_empty: bool = False):
         combo.clear()
 
@@ -343,20 +430,39 @@ class AISettingsWidget(QWidget):
         self.config = settings_service.get_all()
         ai = self.config.get("ai", {})
 
+        provider = ai.get("provider", "stub")
+
         self.apply_to_all_checkbox.setChecked(ai.get("apply_to_all_commands", True))
         self.enabled_checkbox.setChecked(ai.get("enabled", True))
-        self.provider_combo.setCurrentText(ai.get("provider", "stub"))
-        self.ollama_host_edit.setText(ai.get("ollama_host", "http://localhost:11434"))
-        self.ollama_models_path_edit.setText(ai.get("ollama_models_path", ""))
+        self._set_provider_key(provider)
 
-        self._set_combo_text(self.ollama_model_combo, ai.get("ollama_model", ""), add_empty=False)
-        self._set_combo_text(self.chat_ollama_model_combo, ai.get("chat_ollama_model", ""), add_empty=True)
+        if provider == "ollama":
+            endpoint = ai.get("ollama_host", "http://localhost:11434")
+            command_model = ai.get("ollama_model", "")
+            chat_model = ai.get("chat_ollama_model", "")
+        elif provider == "stub":
+            endpoint = ""
+            command_model = ""
+            chat_model = ""
+        else:
+            endpoint = ai.get("provider_endpoint", DEFAULT_ENDPOINTS.get(provider, ""))
+            command_model = ai.get("remote_model", "")
+            chat_model = ai.get("remote_chat_model", "")
+
+        self.provider_endpoint_edit.setText(endpoint)
+        self.api_key_edit.setText(ai.get("api_key", ""))
+
+        self._set_combo_text(self.command_model_combo, command_model, add_empty=False)
+        self._set_combo_text(self.chat_model_combo, chat_model, add_empty=True)
+
+        self.ollama_models_path_edit.setText(ai.get("ollama_models_path", ""))
 
         self.wake_edit.setText(", ".join(ai.get("wake_phrases", [])))
         self.stop_edit.setText(", ".join(ai.get("stop_phrases", [])))
         self.speak_checkbox.setChecked(ai.get("speak_responses", True))
 
         self._loading_controls = False
+        self._update_provider_controls()
 
         if reset_dirty:
             self._saved_form_state = self._capture_form_state()
@@ -372,11 +478,12 @@ class AISettingsWidget(QWidget):
         return {
             "enabled": self.enabled_checkbox.isChecked(),
             "apply_to_all_commands": self.apply_to_all_checkbox.isChecked(),
-            "provider": self.provider_combo.currentText().strip(),
-            "ollama_host": self.ollama_host_edit.text().strip() or "http://localhost:11434",
+            "provider": self._provider_key(),
+            "provider_endpoint": self.provider_endpoint_edit.text().strip(),
+            "api_key": self.api_key_edit.text().strip(),
+            "command_model": self.command_model_combo.currentText().strip(),
+            "chat_model": self.chat_model_combo.currentText().strip(),
             "ollama_models_path": self.ollama_models_path_edit.text().strip(),
-            "ollama_model": self.ollama_model_combo.currentText().strip(),
-            "chat_ollama_model": self.chat_ollama_model_combo.currentText().strip(),
             "wake_phrases": self._split_phrases(self.wake_edit.text()),
             "stop_phrases": self._split_phrases(self.stop_edit.text()),
             "speak_responses": self.speak_checkbox.isChecked(),
@@ -397,13 +504,22 @@ class AISettingsWidget(QWidget):
         state = self._capture_form_state()
 
         if not state["enabled"]:
-            return "Модель: недоступна"
+            return "Модель: не выбрана"
 
-        if state["provider"] != "ollama":
-            return "Модель: недоступна"
+        if not state["apply_to_all_commands"]:
+            return "Модель: не используется"
 
-        if not state["ollama_model"]:
-            return "Модель: недоступна"
+        provider = state["provider"]
+        model = state["command_model"]
+
+        if provider == "stub":
+            return "Модель: не выбрана"
+
+        if not model:
+            return "Модель: не выбрана"
+
+        if provider not in SUPPORTED_RUNTIME_PROVIDERS:
+            return "Модель: провайдер не подключён"
 
         if self.last_model_check_ok is False:
             return "Модель: недоступна"
@@ -414,9 +530,10 @@ class AISettingsWidget(QWidget):
         state = self._capture_form_state()
 
         enabled = state["enabled"]
+        apply_to_all = state["apply_to_all_commands"]
         provider = state["provider"]
-        model = state["ollama_model"]
-        host = state["ollama_host"]
+        endpoint = state["provider_endpoint"]
+        model = state["command_model"]
 
         if self._check_in_progress:
             return "Проверяется", "process", "Выполняется проверка доступности ИИ."
@@ -424,12 +541,26 @@ class AISettingsWidget(QWidget):
         if not enabled:
             return "Не работает", "bad", "ИИ выключен в настройках."
 
+        if not apply_to_all:
+            return "Выключен", "bad", "Интеллектуальная обработка всех команд выключена."
+
         if provider == "stub":
-            return "Не работает", "bad", "Выбрана встроенная заглушка StubAIProvider. Настоящая языковая модель не используется."
+            return (
+                "Не работает",
+                "bad",
+                "В настройках ИИ не выбрана настоящая модель для интеллектуальной обработки команд."
+            )
+
+        if not model:
+            return (
+                "Не работает",
+                "bad",
+                "В настройках ИИ не выбрана ни одна модель для обработки команд."
+            )
 
         if provider == "ollama":
-            if not host or not model:
-                return "Не работает", "bad", "Для Ollama нужно указать host и модель в расширенных настройках."
+            if not endpoint:
+                return "Не работает", "bad", "Для Ollama нужно указать адрес локального сервера."
 
             if self.last_model_check_ok is False:
                 return "Не работает", "bad", self.last_model_check_message or "Последняя проверка модели завершилась ошибкой."
@@ -439,7 +570,21 @@ class AISettingsWidget(QWidget):
 
             return "Настроено", "ok", "Модель указана. Можно проверить её доступность кнопкой «Проверить модель»."
 
-        return "Не работает", "bad", f"Неизвестный AI-провайдер: {provider}"
+        if provider not in SUPPORTED_RUNTIME_PROVIDERS:
+            if not endpoint:
+                return (
+                    "Не работает",
+                    "bad",
+                    "Для выбранного удалённого провайдера нужно указать адрес API."
+                )
+
+            return (
+                "Не поддерживается",
+                "bad",
+                "Провайдер подготовлен в настройках, но выполнение команд через него ещё не подключено в AI gateway."
+            )
+
+        return "Не работает", "bad", "ИИ сейчас недоступен по неизвестной причине."
 
     def refresh_status(self):
         status_text, status_kind, status_tip = self._ai_status()
@@ -450,12 +595,16 @@ class AISettingsWidget(QWidget):
 
         self.model_label.setText(self._model_availability_text())
         self.model_label.setToolTip(
-            "Здесь показывается только доступность модели. Конкретный провайдер и название модели находятся в расширенных настройках."
+            "Здесь показывается только доступность модели. Конкретный провайдер, адрес API и название модели находятся в расширенных настройках."
         )
 
     def load_models(self):
+        if self._provider_key() != "ollama":
+            self.check_status_label.setText("Автоматическое обновление списка моделей сейчас доступно только для Ollama.")
+            return
+
         if self._models_thread is not None:
-            QMessageBox.information(self, "Модели Ollama", "Список моделей уже обновляется.")
+            self.check_status_label.setText("Список моделей уже обновляется.")
             return
 
         logger.info("AISettingsWidget | load_models_start")
@@ -482,37 +631,37 @@ class AISettingsWidget(QWidget):
     def _on_models_loaded(self, models: list, error: str):
         logger.info("AISettingsWidget | load_models_done | count=%s | error=%s", len(models), error)
 
-        current_main = self.ollama_model_combo.currentText().strip()
-        current_chat = self.chat_ollama_model_combo.currentText().strip()
+        current_main = self.command_model_combo.currentText().strip()
+        current_chat = self.chat_model_combo.currentText().strip()
 
         self._loading_controls = True
 
-        self.ollama_model_combo.clear()
-        self.chat_ollama_model_combo.clear()
+        self.command_model_combo.clear()
+        self.chat_model_combo.clear()
 
         if models:
-            self.ollama_model_combo.addItems(models)
-            self.chat_ollama_model_combo.addItem("")
-            self.chat_ollama_model_combo.addItems(models)
+            self.command_model_combo.addItems(models)
+            self.chat_model_combo.addItem("")
+            self.chat_model_combo.addItems(models)
 
             if current_main:
-                idx = self.ollama_model_combo.findText(current_main)
+                idx = self.command_model_combo.findText(current_main)
                 if idx >= 0:
-                    self.ollama_model_combo.setCurrentIndex(idx)
+                    self.command_model_combo.setCurrentIndex(idx)
                 else:
-                    self.ollama_model_combo.setEditText(current_main)
+                    self.command_model_combo.setEditText(current_main)
 
             if current_chat:
-                idx = self.chat_ollama_model_combo.findText(current_chat)
+                idx = self.chat_model_combo.findText(current_chat)
                 if idx >= 0:
-                    self.chat_ollama_model_combo.setCurrentIndex(idx)
+                    self.chat_model_combo.setCurrentIndex(idx)
                 else:
-                    self.chat_ollama_model_combo.setEditText(current_chat)
+                    self.chat_model_combo.setEditText(current_chat)
 
             self.check_status_label.setText(f"Список моделей обновлён. Найдено: {len(models)}")
         else:
-            self._set_combo_text(self.ollama_model_combo, current_main, add_empty=False)
-            self._set_combo_text(self.chat_ollama_model_combo, current_chat, add_empty=True)
+            self._set_combo_text(self.command_model_combo, current_main, add_empty=False)
+            self._set_combo_text(self.chat_model_combo, current_chat, add_empty=True)
 
             if error:
                 self.check_status_label.setText(f"Не удалось обновить список моделей: {error}")
@@ -521,7 +670,7 @@ class AISettingsWidget(QWidget):
 
         self._loading_controls = False
 
-        self.refresh_models_btn.setEnabled(True)
+        self.refresh_models_btn.setEnabled(self._provider_key() == "ollama")
         self.refresh_models_btn.setText("Обновить список моделей")
         self._update_save_buttons()
 
@@ -530,12 +679,22 @@ class AISettingsWidget(QWidget):
         self._models_thread = None
 
     def _start_check(self, mode: str):
-        if self._check_thread is not None:
-            QMessageBox.information(self, "Проверка", "Проверка уже выполняется.")
+        provider = self._provider_key()
+
+        if provider != "ollama":
+            self.check_status_label.setText(
+                "Проверка доступности пока реализована только для Ollama. "
+                "Для удалённых провайдеров нужно подключить отдельные provider-классы в AI gateway."
+            )
+            self.refresh_status()
             return
 
-        host = self.ollama_host_edit.text().strip()
-        model = self.chat_ollama_model_combo.currentText().strip() or self.ollama_model_combo.currentText().strip()
+        if self._check_thread is not None:
+            self.check_status_label.setText("Проверка уже выполняется.")
+            return
+
+        host = self.provider_endpoint_edit.text().strip()
+        model = self.chat_model_combo.currentText().strip() or self.command_model_combo.currentText().strip()
 
         self._check_in_progress = True
         self.refresh_status()
@@ -584,16 +743,32 @@ class AISettingsWidget(QWidget):
 
     def save_settings(self):
         state = self._capture_form_state()
+        provider = state["provider"]
 
         def mutator(cfg: dict):
             cfg.setdefault("ai", {})
+
             cfg["ai"]["enabled"] = state["enabled"]
             cfg["ai"]["apply_to_all_commands"] = state["apply_to_all_commands"]
-            cfg["ai"]["provider"] = state["provider"]
-            cfg["ai"]["ollama_host"] = state["ollama_host"]
+            cfg["ai"]["provider"] = provider
+
+            cfg["ai"]["provider_endpoint"] = state["provider_endpoint"]
+            cfg["ai"]["api_key"] = state["api_key"]
+            cfg["ai"]["remote_model"] = state["command_model"]
+            cfg["ai"]["remote_chat_model"] = state["chat_model"]
+
+            if provider == "ollama":
+                cfg["ai"]["ollama_host"] = state["provider_endpoint"] or "http://localhost:11434"
+                cfg["ai"]["ollama_model"] = state["command_model"]
+                cfg["ai"]["chat_ollama_model"] = state["chat_model"]
+            else:
+                # Старые ключи Ollama оставляем, чтобы при возврате к Ollama
+                # не потерять ранее выбранную локальную модель.
+                cfg["ai"].setdefault("ollama_host", "http://localhost:11434")
+                cfg["ai"].setdefault("ollama_model", "")
+                cfg["ai"].setdefault("chat_ollama_model", "")
+
             cfg["ai"]["ollama_models_path"] = state["ollama_models_path"]
-            cfg["ai"]["ollama_model"] = state["ollama_model"]
-            cfg["ai"]["chat_ollama_model"] = state["chat_ollama_model"]
             cfg["ai"]["wake_phrases"] = state["wake_phrases"]
             cfg["ai"]["stop_phrases"] = state["stop_phrases"]
             cfg["ai"]["speak_responses"] = state["speak_responses"]

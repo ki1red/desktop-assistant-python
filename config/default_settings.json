@@ -126,10 +126,17 @@
     "refine_dictation": true,
     "command_refine_timeout_sec": 4,
     "speak_responses": true,
+
+    "provider_endpoint": "",
+    "api_key": "",
+    "remote_model": "",
+    "remote_chat_model": "",
+
     "ollama_host": "http://localhost:11434",
     "ollama_model": "gemma3:4b",
     "chat_ollama_model": "gemma3:4b",
     "ollama_models_path": "",
+
     "wake_phrases": [
       "ассистент",
       "режим общения",

@@ -43,7 +43,22 @@ def main():
     log_runtime_paths("after_bootstrap")
     log_settings_snapshot(settings_service.get_all(), "after_bootstrap")
 
-    startup_logger.info("AI config at startup: %s", settings_service.get_section("ai", {}))
+    ai_snapshot = settings_service.get_section("ai", {})
+
+    if isinstance(ai_snapshot, dict):
+        ai_snapshot = dict(ai_snapshot)
+
+        for secret_key in [
+            "api_key",
+            "token",
+            "access_token",
+            "secret",
+            "client_secret",
+        ]:
+            if secret_key in ai_snapshot and ai_snapshot[secret_key]:
+                ai_snapshot[secret_key] = "***"
+
+    startup_logger.info("AI config at startup: %s", ai_snapshot)
 
     startup_logger.info("startup | before AppRuntime")
     runtime = AppRuntime()

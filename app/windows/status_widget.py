@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QGridLayout,
     QFrame,
+    QApplication,
 )
 
 from app.dictation.state import dictation_state
@@ -15,6 +16,10 @@ from app.events.notifier import AssistantNotifier
 from app.indexing.index_state import index_state
 from app.settings_service import settings_service
 from app.speech.recorder import list_input_devices
+from app.windows.ui_kit import make_page_title, make_status_badge, apply_status_style
+
+
+SUPPORTED_RUNTIME_AI_PROVIDERS = {"stub", "ollama"}
 
 
 def _mode_text() -> str:
@@ -31,40 +36,6 @@ def _mode_tooltip() -> str:
     if dictation_state.is_enabled():
         return "Режим диктовки вставляет распознанную речь как текст в активное окно."
     return "Обычный режим распознаёт голосовую команду и выполняет действие на компьютере."
-
-
-def _make_page_title(text: str) -> QLabel:
-    label = QLabel(text)
-    label.setAlignment(Qt.AlignCenter)
-    label.setStyleSheet("font-size: 34px; font-weight: 600;")
-    return label
-
-
-def _make_status_badge() -> QLabel:
-    label = QLabel("XXX")
-    label.setAlignment(Qt.AlignCenter)
-    label.setMinimumWidth(170)
-    return label
-
-
-def _apply_status_style(label: QLabel, status_kind: str):
-    if status_kind == "ok":
-        bg, fg = "#e7f6ec", "#16723a"
-    elif status_kind == "process":
-        bg, fg = "#fff3d6", "#8a5a00"
-    else:
-        bg, fg = "#fde8e8", "#9b1c1c"
-
-    label.setStyleSheet(f"""
-        QLabel {{
-            font-size: 25px;
-            font-weight: 700;
-            padding: 8px 16px;
-            border-radius: 12px;
-            background: {bg};
-            color: {fg};
-        }}
-    """)
 
 
 class StatusRow(QFrame):
@@ -121,8 +92,8 @@ class StatusWidget(QWidget):
         header.setColumnStretch(1, 2)
         header.setColumnStretch(2, 1)
 
-        self.title_label = _make_page_title("Состояние")
-        self.overall_status = _make_status_badge()
+        self.title_label = make_page_title("Состояние")
+        self.overall_status = make_status_badge()
 
         header.addWidget(self.title_label, 0, 1)
         header.addWidget(self.overall_status, 0, 2, alignment=Qt.AlignRight | Qt.AlignVCenter)
@@ -144,6 +115,11 @@ class StatusWidget(QWidget):
             tooltip="Обычный режим выполняет команды, диктовка вводит текст, режим общения отправляет фразы в ИИ."
         )
 
+        self.ai_row = StatusRow(
+            "Искусственный интеллект",
+            tooltip="ИИ помогает уточнять команды после распознавания речи, но ассистент может работать и без него."
+        )
+
         self.index_row = StatusRow(
             "Индексация файлов",
             tooltip="Индекс нужен, чтобы ассистент быстро находил приложения, файлы и папки на компьютере."
@@ -157,13 +133,40 @@ class StatusWidget(QWidget):
         rows_layout.addWidget(self.index_row, 0, 1)
         rows_layout.addWidget(self.mic_row, 1, 0)
         rows_layout.addWidget(self.mode_row, 2, 0)
+        rows_layout.addWidget(self.ai_row, 3, 0)
 
         root.addLayout(rows_layout)
-
         root.addStretch(1)
 
         self.actions_row = QHBoxLayout()
         self.actions_row.addStretch(1)
+
+        self.hide_btn = QPushButton("Скрыть ассистента")
+        self.hide_btn.setToolTip("Скрывает окно приложения. Ассистент продолжит работать в фоне.")
+        self.hide_btn.clicked.connect(self.hide_assistant)
+
+        self.quit_btn = QPushButton("Выключить ассистента")
+        self.quit_btn.setToolTip("Полностью закрывает приложение и останавливает фоновый сервис.")
+        self.quit_btn.clicked.connect(self.quit_assistant)
+        self.quit_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 16px;
+                padding: 8px 14px;
+                border-radius: 8px;
+                border: 1px solid #b91c1c;
+                background: #fee2e2;
+                color: #991b1b;
+                font-weight: 600;
+            }
+
+            QPushButton:hover {
+                background: #fecaca;
+            }
+
+            QPushButton:pressed {
+                background: #fca5a5;
+            }
+        """)
 
         self.test_voice_btn = QPushButton("Проверить голос")
         self.refresh_btn = QPushButton("Обновить")
@@ -171,12 +174,14 @@ class StatusWidget(QWidget):
         self.test_voice_btn.clicked.connect(self.test_voice)
         self.refresh_btn.clicked.connect(self.refresh)
 
-        self.actions_row.addWidget(self.test_voice_btn)
-        self.actions_row.addWidget(self.refresh_btn)
-
-        # Пока скрываем, но не удаляем: могут пригодиться для диагностики.
+        # Пока скрыты, но оставлены в коде для диагностики.
         self.test_voice_btn.setVisible(False)
         self.refresh_btn.setVisible(False)
+
+        self.actions_row.addWidget(self.test_voice_btn)
+        self.actions_row.addWidget(self.refresh_btn)
+        self.actions_row.addWidget(self.hide_btn)
+        self.actions_row.addWidget(self.quit_btn)
 
         root.addLayout(self.actions_row)
 
@@ -234,6 +239,73 @@ class StatusWidget(QWidget):
             True,
         )
 
+    def _get_ai_state(self) -> tuple[str, str]:
+        cfg = settings_service.get_all()
+        ai = cfg.get("ai", {})
+
+        enabled = bool(ai.get("enabled", True))
+        apply_to_all = bool(ai.get("apply_to_all_commands", True))
+        provider = (ai.get("provider", "") or "").strip()
+
+        ollama_host = (ai.get("ollama_host", "") or "").strip()
+        ollama_model = (ai.get("ollama_model", "") or "").strip()
+
+        provider_endpoint = (ai.get("provider_endpoint", "") or "").strip()
+        remote_model = (ai.get("remote_model", "") or "").strip()
+
+        if not enabled:
+            return (
+                "выключен",
+                "ИИ полностью выключен в настройках. Ассистент всё равно может выполнять обычные команды без ИИ."
+            )
+
+        if not apply_to_all:
+            return (
+                "выключен",
+                "Интеллектуальная обработка всех команд выключена. После распознавания речи команды обрабатываются обычными правилами."
+            )
+
+        if not provider:
+            return (
+                "не поддерживается",
+                "Провайдер ИИ не выбран. Ассистент будет работать без интеллектуальной обработки команд."
+            )
+
+        if provider == "stub":
+            return (
+                "не доступен",
+                "В настройках ИИ не выбрана настоящая модель для интеллектуальной обработки команд."
+            )
+
+        if provider == "ollama":
+            if not ollama_host or not ollama_model:
+                return (
+                    "не доступен",
+                    "В настройках ИИ не выбрана модель Ollama или не указан адрес локального сервера."
+                )
+
+            return (
+                "включён",
+                "ИИ включён для обработки команд. Используется Ollama. Доступность модели можно проверить во вкладке «ИИ»."
+            )
+
+        if provider not in SUPPORTED_RUNTIME_AI_PROVIDERS:
+            if not provider_endpoint or not remote_model:
+                return (
+                    "не доступен",
+                    "В настройках ИИ не выбрана модель или адрес API для удалённого провайдера."
+                )
+
+            return (
+                "не поддерживается",
+                "Провайдер выбран, но выполнение команд через него ещё не подключено в AI gateway."
+            )
+
+        return (
+            "не доступен",
+            "ИИ сейчас недоступен по неизвестной причине."
+        )
+
     def _compute_overall_status(self, index_running: bool, mic_ok: bool) -> tuple[str, str, str]:
         if index_running:
             return (
@@ -269,11 +341,12 @@ class StatusWidget(QWidget):
         index_message = index.get("message", "")
 
         mic_value, mic_tooltip, mic_ok = self._get_mic_state()
+        ai_value, ai_tooltip = self._get_ai_state()
 
         overall_text, overall_kind, overall_tip = self._compute_overall_status(index_running, mic_ok)
         self.overall_status.setText(overall_text)
         self.overall_status.setToolTip(overall_tip)
-        _apply_status_style(self.overall_status, overall_kind)
+        apply_status_style(self.overall_status, overall_kind)
 
         if self.bg_service.is_busy():
             command_value = "выполняется"
@@ -297,6 +370,9 @@ class StatusWidget(QWidget):
         self.mode_row.set_value(_mode_text())
         self.mode_row.set_tooltip(_mode_tooltip())
 
+        self.ai_row.set_value(ai_value)
+        self.ai_row.set_tooltip(ai_tooltip)
+
         if index_running:
             index_value = "выполняется"
             index_tip = f"Сейчас выполняется индексация файлов. {index_message}"
@@ -309,3 +385,18 @@ class StatusWidget(QWidget):
 
     def test_voice(self):
         self.notifier.say("Проверка голоса. Ассистент работает.")
+
+    def hide_assistant(self):
+        window = self.window()
+        if window is not None:
+            window.hide()
+
+    def quit_assistant(self):
+        try:
+            self.bg_service.stop()
+        except Exception:
+            pass
+
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()

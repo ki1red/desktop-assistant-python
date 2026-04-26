@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMainWindow, QTabWidget
+from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QProxyStyle, QStyle
 
 from app.windows.logs_widget import LogsWidget
 from app.windows.providers_widget import ProvidersWidget
@@ -9,10 +9,22 @@ from app.windows.history_widget import HistoryWidget
 from app.windows.custom_commands_widget import CustomCommandsWidget
 from app.windows.status_widget import StatusWidget
 from app.windows.ai_widget import AISettingsWidget
+from app.windows.tooltip_manager import install_custom_tooltips
 from app.logger import get_logger
 
 
 logger = get_logger("ui")
+
+
+class FastToolTipStyle(QProxyStyle):
+    def styleHint(self, hint, option=None, widget=None, returnData=None):
+        if hint == QStyle.StyleHint.SH_ToolTip_WakeUpDelay:
+            return 120
+
+        if hint == QStyle.StyleHint.SH_ToolTip_FallAsleepDelay:
+            return 9000
+
+        return super().styleHint(hint, option, widget, returnData)
 
 
 class AssistantMainWindow(QMainWindow):
@@ -23,6 +35,41 @@ class AssistantMainWindow(QMainWindow):
         self.setWindowTitle("Local PC Assistant")
         self.resize(1250, 860)
 
+        self._install_tooltip_style()
+        self._apply_window_style()
+
+        self.tabs = QTabWidget()
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+        self._previous_tab_index = -1
+
+        self._add_tab("Состояние", lambda: StatusWidget(bg_service))
+        self._add_tab("ИИ", AISettingsWidget)
+        self._add_tab("Аудио", AudioSettingsWidget)
+        self._add_tab("Логи", LogsWidget)
+        self._add_tab("Быстрые цели", QuickTargetsWidget)
+        self._add_tab("Папки", PathsWidget)
+        self._add_tab("Провайдеры", ProvidersWidget)
+        self._add_tab("История", HistoryWidget)
+        self._add_tab("Пользовательские команды", CustomCommandsWidget)
+
+        self.setCentralWidget(self.tabs)
+
+        logger.info("UI | MainWindow | init_done")
+
+    def _install_tooltip_style(self):
+        app = QApplication.instance()
+        if app is None:
+            return
+
+        current_style = app.style()
+        if not isinstance(current_style, FastToolTipStyle):
+            app.setStyle(FastToolTipStyle(current_style))
+
+        # Полностью заменяем стандартные Qt/Windows tooltip на собственные.
+        # Это убирает наследование жирного/крупного шрифта от QLabel.
+        install_custom_tooltips(app)
+
+    def _apply_window_style(self):
         self.setStyleSheet("""
             QMainWindow {
                 background: #f7f8fb;
@@ -97,24 +144,6 @@ class AssistantMainWindow(QMainWindow):
             }
         """)
 
-        self.tabs = QTabWidget()
-        self.tabs.currentChanged.connect(self._on_tab_changed)
-        self._previous_tab_index = -1
-
-        self._add_tab("Состояние", lambda: StatusWidget(bg_service))
-        self._add_tab("ИИ", AISettingsWidget)
-        self._add_tab("Аудио", AudioSettingsWidget)
-        self._add_tab("Логи", LogsWidget)
-        self._add_tab("Быстрые цели", QuickTargetsWidget)
-        self._add_tab("Папки", PathsWidget)
-        self._add_tab("Провайдеры", ProvidersWidget)
-        self._add_tab("История", HistoryWidget)
-        self._add_tab("Пользовательские команды", CustomCommandsWidget)
-
-        self.setCentralWidget(self.tabs)
-
-        logger.info("UI | MainWindow | init_done")
-
     def _add_tab(self, title: str, factory):
         logger.info("UI | MainWindow | create_tab_start | %s", title)
 
@@ -136,7 +165,11 @@ class AssistantMainWindow(QMainWindow):
                     logger.info("UI | MainWindow | deactivate_tab | %s", previous_title)
                     previous_widget.on_tab_deactivated()
                 except Exception as e:
-                    logger.exception("UI | MainWindow | tab deactivation failed | %s | %s", previous_title, e)
+                    logger.exception(
+                        "UI | MainWindow | tab deactivation failed | %s | %s",
+                        previous_title,
+                        e,
+                    )
 
         title = self.tabs.tabText(index) if index >= 0 else ""
         logger.info("UI | MainWindow | switch_tab | %s", title)

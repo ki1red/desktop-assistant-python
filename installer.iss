@@ -1,5 +1,5 @@
 #define MyAppName "LocalAssistant"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.1.1"
 #define MyAppPublisher "Nikita Druzhinin"
 #define MyAppExeName "LocalAssistant.exe"
 
@@ -18,7 +18,6 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
-SetupIconFile=
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
@@ -38,10 +37,45 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Запустить {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
-[UninstallDelete]
-Type: filesandordirs; Name: "{localappdata}\LocalAssistant\data"
-Type: filesandordirs; Name: "{localappdata}\LocalAssistant\temp"
-Type: filesandordirs; Name: "{localappdata}\LocalAssistant\logs"
-Type: files; Name: "{localappdata}\LocalAssistant\config\settings.json"
-Type: dirifempty; Name: "{localappdata}\LocalAssistant\config"
-Type: dirifempty; Name: "{localappdata}\LocalAssistant"
+[Code]
+var
+  DeleteUserData: Boolean;
+
+function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  DeleteUserData := False;
+
+  ResultCode := MsgBox(
+    'Удалить пользовательские данные LocalAssistant?' + #13#10 + #13#10 +
+    'Будут удалены настройки пользователя, база индексации, временные файлы и логи:' + #13#10 +
+    ExpandConstant('{localappdata}\LocalAssistant') + #13#10 + #13#10 +
+    'Если выбрать «Нет», программа будет удалена, но пользовательские данные останутся.',
+    mbConfirmation,
+    MB_YESNO
+  );
+
+  if ResultCode = IDYES then
+    DeleteUserData := True;
+
+  Result := True;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  UserDataDir: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if DeleteUserData then
+    begin
+      UserDataDir := ExpandConstant('{localappdata}\LocalAssistant');
+
+      if DirExists(UserDataDir) then
+      begin
+        DelTree(UserDataDir, True, True, True);
+      end;
+    end;
+  end;
+end;

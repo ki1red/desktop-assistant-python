@@ -4,16 +4,20 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает.">
-      <change afterPath="$PROJECT_DIR$/app/windows/floating_save_bar.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает.">
+      <change afterPath="$PROJECT_DIR$/app/windows/tooltip_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/windows/ui_kit.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/floating_save_bar.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/floating_save_bar.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/logs_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/logs_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assistant_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assistant_app.spec" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.spec" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/installer.iss" beforeDir="false" afterPath="$PROJECT_DIR$/installer.iss" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -288,7 +292,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777193391462</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает.">
+      <option name="closed" value="true" />
+      <created>1777196817319</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1777196817319</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -326,7 +338,8 @@
     <MESSAGE value="С горем пополам починил первый запуск ассистента после запуска системы" />
     <MESSAGE value="Немного улучшена работа с пустыми командами. Больше не вылезают ошибки на пустых голосовых." />
     <MESSAGE value="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает." />
-    <option name="LAST_COMMIT_MESSAGE" value="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает." />
+    <MESSAGE value="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает." />
+    <option name="LAST_COMMIT_MESSAGE" value="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

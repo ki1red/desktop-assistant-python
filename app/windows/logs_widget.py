@@ -2,7 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import zipfile
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -11,10 +11,13 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QFileDialog,
     QMessageBox,
+    QLabel,
+    QGridLayout,
 )
 from PySide6.QtGui import QTextCursor
 
 from app.logging_config import LOG_FILE, LOG_DIR
+from app.windows.ui_kit import make_page_title, InfoCard
 
 
 try:
@@ -51,28 +54,7 @@ class LogsWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.text = QTextEdit()
-        self.text.setReadOnly(True)
-
-        self.refresh_btn = QPushButton("Обновить")
-        self.open_folder_btn = QPushButton("Открыть папку логов")
-        self.clear_view_btn = QPushButton("Очистить окно")
-        self.export_btn = QPushButton("Скачать логи")
-
-        top = QHBoxLayout()
-        top.addWidget(self.refresh_btn)
-        top.addWidget(self.open_folder_btn)
-        top.addWidget(self.clear_view_btn)
-        top.addWidget(self.export_btn)
-
-        layout = QVBoxLayout(self)
-        layout.addLayout(top)
-        layout.addWidget(self.text)
-
-        self.refresh_btn.clicked.connect(self.on_refresh_clicked)
-        self.open_folder_btn.clicked.connect(self.on_open_folder_clicked)
-        self.clear_view_btn.clicked.connect(self.on_clear_view_clicked)
-        self.export_btn.clicked.connect(self.export_logs)
+        self._build_ui()
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_logs)
@@ -80,9 +62,80 @@ class LogsWidget(QWidget):
 
         self.refresh_logs()
 
-    def on_refresh_clicked(self):
-        log_ui_action("Logs", "refresh")
-        self.refresh_logs()
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(48, 34, 48, 34)
+        root.setSpacing(24)
+
+        header = QGridLayout()
+        header.setColumnStretch(0, 1)
+        header.setColumnStretch(1, 2)
+        header.setColumnStretch(2, 1)
+
+        title = make_page_title("Логи")
+        header.addWidget(title, 0, 1)
+
+        root.addLayout(header)
+
+        card = InfoCard()
+
+        info = QLabel(
+            "Здесь отображается журнал работы ассистента. "
+            "Логи помогают понять, что именно произошло при ошибке или странном поведении."
+        )
+        info.setWordWrap(True)
+        info.setStyleSheet("font-size: 18px; color: #303846;")
+        info.setToolTip(
+            "Логи — это технический журнал. В нём видны запуск приложения, настройки, распознавание речи, команды и ошибки."
+        )
+
+        path_label = QLabel(f"Файл логов: {LOG_FILE}")
+        path_label.setWordWrap(True)
+        path_label.setStyleSheet("font-size: 14px; color: #687386;")
+        path_label.setToolTip("Это путь к текущему файлу логов в AppData.")
+
+        card.layout.addWidget(info)
+        card.layout.addWidget(path_label)
+
+        buttons = QHBoxLayout()
+
+        self.open_folder_btn = QPushButton("Открыть папку логов")
+        self.clear_view_btn = QPushButton("Очистить окно")
+        self.export_btn = QPushButton("Скачать логи")
+
+        self.open_folder_btn.setToolTip("Открывает папку, где хранятся файлы логов ассистента.")
+        self.clear_view_btn.setToolTip("Очищает только отображение в этом окне. Сам файл логов не удаляется.")
+        self.export_btn.setToolTip("Сохраняет архив логов. По умолчанию предлагается папка «Загрузки».")
+
+        self.open_folder_btn.clicked.connect(self.on_open_folder_clicked)
+        self.clear_view_btn.clicked.connect(self.on_clear_view_clicked)
+        self.export_btn.clicked.connect(self.export_logs)
+
+        buttons.addWidget(self.open_folder_btn)
+        buttons.addWidget(self.clear_view_btn)
+        buttons.addStretch(1)
+        buttons.addWidget(self.export_btn)
+
+        card.layout.addLayout(buttons)
+
+        root.addWidget(card)
+
+        self.text = QTextEdit()
+        self.text.setReadOnly(True)
+        self.text.setStyleSheet("""
+            QTextEdit {
+                font-size: 13px;
+                font-family: Consolas, monospace;
+                background: #111827;
+                color: #e5e7eb;
+                border: 1px solid #d6d9e0;
+                border-radius: 12px;
+                padding: 12px;
+            }
+        """)
+        self.text.setToolTip("Последние строки файла логов. Обновляется автоматически.")
+
+        root.addWidget(self.text, 1)
 
     def on_open_folder_clicked(self):
         log_ui_action("Logs", "open_folder")
@@ -118,6 +171,8 @@ class LogsWidget(QWidget):
 
             log_ui_action("Logs", "export_logs", path)
 
+            # Информационное окно пока оставляем здесь, потому что это сохранение файла наружу,
+            # и пользователю важно увидеть, куда именно ушёл архив.
             QMessageBox.information(
                 self,
                 "Готово",
