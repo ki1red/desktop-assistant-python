@@ -57,7 +57,9 @@
     "debug_candidates": true,
     "activation_mode": "hotkey",
     "voice_activation_phrase": "ассистент",
-    "comment_actions": true
+    "comment_actions": true,
+    "wake_record_seconds": 1.8,
+    "wake_check_interval_sec": 0.35
   },
   "priority_roots": {
     "cwd": true,

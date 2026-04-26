@@ -4,16 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске.">
-      <change afterPath="$PROJECT_DIR$/app/windows/app_settings_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/windows/assistant_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/windows/startup_manager.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Добавлены новый вкладки для работы с самим приложением и настройкой ассистента. Голосовая активация пока что не работает.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/app_runtime.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/app_runtime.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/logs_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/logs_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -305,7 +299,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777202689968</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="Добавлены новый вкладки для работы с самим приложением и настройкой ассистента. Голосовая активация пока что не работает.">
+      <option name="closed" value="true" />
+      <created>1777204148628</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1777204148628</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -320,7 +322,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Базовый проект, переписанный с C#" />
     <MESSAGE value="Ассистент на Python.&#10;Уже распознаёт команды в большинстве случаев, индексирует файлы системы и имеет приоритетные для проверки папки." />
     <MESSAGE value="Настрйоки вынесены в конфиги.&#10;Создана локальная бд для индексации." />
     <MESSAGE value="Обновлена БД" />
@@ -345,7 +346,8 @@
     <MESSAGE value="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает." />
     <MESSAGE value="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает." />
     <MESSAGE value="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске." />
-    <option name="LAST_COMMIT_MESSAGE" value="Корретно отображается количество индексированных объектов в подсказке на странице состояния.&#10;Улучшена страница логирования. Файлы логов создаются при каждом новом запуске." />
+    <MESSAGE value="Добавлены новый вкладки для работы с самим приложением и настройкой ассистента. Голосовая активация пока что не работает." />
+    <option name="LAST_COMMIT_MESSAGE" value="Добавлены новый вкладки для работы с самим приложением и настройкой ассистента. Голосовая активация пока что не работает." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

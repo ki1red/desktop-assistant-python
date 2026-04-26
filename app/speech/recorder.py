@@ -281,6 +281,92 @@ def record_audio_to_wav() -> str:
     logger.info("Аудио записано: %s", wav_path)
     return str(wav_path)
 
+def record_wake_audio_to_wav(max_seconds: float | None = None) -> str:
+    """
+    Короткая запись для режима голосовой активации.
+
+    Отличие от record_audio_to_wav():
+    - пишет короткий фиксированный фрагмент;
+    - не ждёт длинную команду;
+    - не говорит пользователю об отсутствии речи;
+    - нужна только для проверки wake-фразы вроде "ассистент".
+    """
+    cfg = settings_service.get_all()
+    audio_cfg = cfg["audio"]
+    paths_cfg = cfg["paths"]
+    assistant_cfg = cfg.get("assistant", {})
+
+    if not bool(audio_cfg.get("microphone_enabled", True)):
+        raise MicrophoneSelectionError(
+            "Использование микрофона отключено в настройках. Включите микрофон во вкладке «Аудио»."
+        )
+
+    sample_rate = int(audio_cfg.get("sample_rate", 16000))
+    channels = int(audio_cfg.get("channels", 1))
+    chunk_size = int(audio_cfg.get("chunk_size", 1024))
+    selected_device_name = audio_cfg.get("input_device_name", "")
+
+    input_gain = float(audio_cfg.get("input_gain", 1.0))
+    auto_gain_enabled = bool(audio_cfg.get("auto_input_gain_enabled", True))
+    auto_gain_target_rms = float(audio_cfg.get("auto_gain_target_rms", 2200))
+    max_auto_gain = float(audio_cfg.get("max_auto_gain", 10.0))
+
+    wake_seconds = float(
+        max_seconds
+        if max_seconds is not None
+        else assistant_cfg.get("wake_record_seconds", 1.8)
+    )
+    wake_seconds = max(0.8, min(wake_seconds, 4.0))
+
+    temp_dir = Path(paths_cfg["temp_dir"])
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    device_index, resolved_name = _resolve_input_device(selected_device_name)
+
+    frames = []
+    total_duration = 0.0
+    current_gain = max(0.1, input_gain)
+
+    with sd.InputStream(
+        samplerate=sample_rate,
+        channels=channels,
+        blocksize=chunk_size,
+        dtype="int16",
+        device=device_index,
+    ) as stream:
+        while total_duration < wake_seconds:
+            data, overflowed = stream.read(chunk_size)
+
+            if overflowed:
+                logger.debug("Wake-аудио: переполнение входного аудиобуфера.")
+
+            raw_rms = _rms(data)
+
+            if auto_gain_enabled:
+                if raw_rms > 1.0:
+                    desired_gain = auto_gain_target_rms / raw_rms
+                    desired_gain = max(1.0, min(max_auto_gain, desired_gain))
+                    current_gain = 0.7 * current_gain + 0.3 * desired_gain
+                else:
+                    current_gain = min(max_auto_gain, current_gain * 1.4)
+
+            adjusted = _apply_gain(data, current_gain)
+            frames.append(adjusted.copy())
+
+            block_duration = len(adjusted) / sample_rate
+            total_duration += block_duration
+
+    if not frames:
+        raise RuntimeError("Не удалось записать wake-аудио.")
+
+    audio = np.concatenate(frames, axis=0)
+    audio, _post_gain = _post_normalize_audio(audio, auto_gain_target_rms, max_auto_gain)
+
+    wav_path = temp_dir / f"wake_{uuid.uuid4().hex}.wav"
+    _write_wav(wav_path, audio, sample_rate, channels)
+
+    logger.debug("Wake-аудио записано: %s device=%s", wav_path, resolved_name)
+    return str(wav_path)
 
 def delete_temp_file(path: str | None):
     if not path:
