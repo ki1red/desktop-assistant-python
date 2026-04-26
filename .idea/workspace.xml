@@ -5,19 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Первый этап обновления дизайна. Сделан userfriendly интерфейс на пользовательские вкладки. Всё протестировано, работает.">
-      <change afterPath="$PROJECT_DIR$/app/windows/tooltip_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/windows/ui_kit.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/floating_save_bar.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/floating_save_bar.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/logging/export_logs.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/logging/export_logs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/logging_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/logging_config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/logs_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/logs_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assistant_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/assistant_app.spec" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.spec" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/installer.iss" beforeDir="false" afterPath="$PROJECT_DIR$/installer.iss" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -66,28 +59,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python.app_index.executor&quot;: &quot;Run&quot;,
-    &quot;Python.app_runtime.executor&quot;: &quot;Run&quot;,
-    &quot;Python.assistant_app.executor&quot;: &quot;Run&quot;,
-    &quot;Python.build_index.executor&quot;: &quot;Run&quot;,
-    &quot;Python.debug_apps.executor&quot;: &quot;Run&quot;,
-    &quot;Python.desktop_app.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ollama_health.executor&quot;: &quot;Run&quot;,
-    &quot;Python.ollama_model_discovery.executor&quot;: &quot;Run&quot;,
-    &quot;Python.resolver.executor&quot;: &quot;Run&quot;,
-    &quot;Python.run_background.executor&quot;: &quot;Run&quot;,
-    &quot;Python.voice_widget.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.app_index.executor": "Run",
+    "Python.app_runtime.executor": "Run",
+    "Python.assistant_app.executor": "Run",
+    "Python.build_index.executor": "Run",
+    "Python.debug_apps.executor": "Run",
+    "Python.desktop_app.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.ollama_health.executor": "Run",
+    "Python.ollama_model_discovery.executor": "Run",
+    "Python.resolver.executor": "Run",
+    "Python.run_background.executor": "Run",
+    "Python.voice_widget.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "releases",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\druzh\PycharmProjects\PythonProject\app" />

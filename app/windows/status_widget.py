@@ -17,6 +17,7 @@ from app.indexing.index_state import index_state
 from app.settings_service import settings_service
 from app.speech.recorder import list_input_devices
 from app.windows.ui_kit import make_page_title, make_status_badge, apply_status_style
+from app.indexing.indexer import get_index_count
 
 
 SUPPORTED_RUNTIME_AI_PROVIDERS = {"stub", "ollama"}
@@ -79,8 +80,25 @@ class StatusWidget(QWidget):
         super().__init__()
         self.bg_service = bg_service
         self.notifier = AssistantNotifier()
+        self._cached_index_count = 0
+        self._index_count_tick = 0
         self._build_ui()
         self._start_timer()
+
+    def _get_persistent_index_count(self, force: bool = False) -> int:
+        self._index_count_tick += 1
+
+        if not force and self._cached_index_count > 0 and self._index_count_tick < 10:
+            return self._cached_index_count
+
+        self._index_count_tick = 0
+
+        try:
+            self._cached_index_count = int(get_index_count())
+        except Exception:
+            self._cached_index_count = 0
+
+        return self._cached_index_count
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -193,6 +211,7 @@ class StatusWidget(QWidget):
         self.timer.start(1000)
 
     def on_tab_activated(self):
+        self._get_persistent_index_count(force=True)
         self.refresh()
 
     def _get_mic_state(self) -> tuple[str, str, bool]:
@@ -337,7 +356,14 @@ class StatusWidget(QWidget):
     def refresh(self):
         index = index_state.snapshot()
         index_running = bool(index.get("is_running", False))
-        index_count = index.get("indexed_count", 0)
+        index = index_state.snapshot()
+        index_running = bool(index.get("is_running", False))
+        index_message = index.get("message", "")
+
+        if index_running:
+            index_count = index.get("indexed_count", 0)
+        else:
+            index_count = self._get_persistent_index_count()
         index_message = index.get("message", "")
 
         mic_value, mic_tooltip, mic_ok = self._get_mic_state()

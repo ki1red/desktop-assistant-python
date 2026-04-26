@@ -1,17 +1,24 @@
 import logging
-from logging.handlers import RotatingFileHandler
+import os
+from datetime import datetime
+from pathlib import Path
 
-from app.app_paths import LOGS_DIR, LOG_PATH, ensure_app_dirs
+from app.app_paths import LOGS_DIR
 
 
 LOG_DIR = LOGS_DIR
-LOG_FILE = LOG_PATH
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+_START_STAMP = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+_PROCESS_ID = os.getpid()
+
+# Новый отдельный файл логов на каждый запуск приложения.
+LOG_FILE = LOG_DIR / f"assistant_{_START_STAMP}_pid{_PROCESS_ID}.log"
 
 
 def setup_logging():
-    ensure_app_dirs()
-
     root_logger = logging.getLogger()
+
     if root_logger.handlers:
         return
 
@@ -24,10 +31,8 @@ def setup_logging():
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    file_handler = RotatingFileHandler(
+    file_handler = logging.FileHandler(
         LOG_FILE,
-        maxBytes=2 * 1024 * 1024,
-        backupCount=5,
         encoding="utf-8"
     )
     file_handler.setLevel(logging.INFO)

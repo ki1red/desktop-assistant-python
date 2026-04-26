@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_submodules
+
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 
 
 project_root = Path.cwd()
@@ -19,17 +20,43 @@ if (project_root / "assets").exists():
 if (project_root / "models").exists():
     datas.append(("models", "models"))
 
+# ВАЖНО:
+# faster-whisper использует ONNX-файл silero_vad_v6.onnx для VAD.
+# Без этого файла собранное приложение падает при распознавании речи.
+datas += collect_data_files(
+    "faster_whisper",
+    includes=[
+        "assets/*",
+        "assets/*.onnx"
+    ]
+)
+
 
 hiddenimports = []
+
 hiddenimports += collect_submodules("app")
-hiddenimports += collect_submodules("PySide6")
-hiddenimports += collect_submodules("sounddevice")
-hiddenimports += collect_submodules("numpy")
-hiddenimports += collect_submodules("faster_whisper")
-hiddenimports += collect_submodules("ctranslate2")
-hiddenimports += collect_submodules("pynput")
-hiddenimports += collect_submodules("keyboard")
-hiddenimports += collect_submodules("pyperclip")
+
+hiddenimports += [
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    "PySide6.QtWidgets",
+    "PySide6.QtNetwork",
+
+    "sounddevice",
+    "numpy",
+
+    "faster_whisper",
+    "faster_whisper.transcribe",
+    "faster_whisper.vad",
+
+    "ctranslate2",
+    "onnxruntime",
+
+    "pynput",
+    "pynput.keyboard",
+    "keyboard",
+    "pyperclip"
+]
 
 
 a = Analysis(
@@ -42,7 +69,13 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        "tkinter"
+        "tkinter",
+        "pytest",
+        "numpy.tests",
+        "numpy.f2py.tests",
+        "PySide6.QtWebEngineCore",
+        "PySide6.QtWebEngineWidgets",
+        "PySide6.QtWebEngineQuick"
     ],
     noarchive=False,
 )
