@@ -8,7 +8,7 @@ from app.speech.recorder import (
     MicrophoneSelectionError,
     NoMicrophoneSignalError,
 )
-from app.speech.transcriber import SpeechTranscriber
+from app.speech.transcriber import SpeechTranscriber, NoSpeechDetected
 from app.nlu.parser import CommandParser
 from app.resolver.resolver import TargetResolver
 from app.executor.executor import CommandExecutor
@@ -395,10 +395,23 @@ class AssistantPipeline:
 
             try:
                 stt_result = self.transcriber.transcribe(wav_path)
+
+            except NoSpeechDetected as e:
+                logger.warning("Речь не распознана: %s", e)
+                print(f"[STT][WARN] Речь не распознана: {e}")
+
+                if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                    self.notifier.say("Я почти ничего не услышал. Попробуйте сказать команду чуть громче.")
+
+                return None
+
             except Exception as e:
                 logger.exception("Ошибка распознавания аудио: %s", e)
+                print(f"[STT][ERROR] Не удалось распознать аудио: {e}")
+
                 if not dictation_state.is_enabled() and not chat_state.is_enabled():
                     self.notifier.say("Не удалось распознать аудио.")
+
                 return None
 
             if runtime_control.is_cancelled():

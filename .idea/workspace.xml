@@ -4,14 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Внедрено использование ИИ после STT">
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="С горем пополам починил первый запуск ассистента после запуска системы">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/ai/ollama_model_discovery.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ai/ollama_model_discovery.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/speech/transcriber.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/transcriber.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/app_runtime.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/app_runtime.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/tray_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/tray_controller.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -262,7 +260,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777117736924</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="С горем пополам починил первый запуск ассистента после запуска системы">
+      <option name="closed" value="true" />
+      <created>1777187980162</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1777187980162</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -297,7 +303,8 @@
     <MESSAGE value="Наконец-то добавлены отмены действий." />
     <MESSAGE value="Рабочая версия v1.0" />
     <MESSAGE value="Внедрено использование ИИ после STT" />
-    <option name="LAST_COMMIT_MESSAGE" value="Внедрено использование ИИ после STT" />
+    <MESSAGE value="С горем пополам починил первый запуск ассистента после запуска системы" />
+    <option name="LAST_COMMIT_MESSAGE" value="С горем пополам починил первый запуск ассистента после запуска системы" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

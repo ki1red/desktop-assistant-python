@@ -18,7 +18,7 @@ class AppRuntime:
         self.qt_app = QApplication([])
 
         # Важно для tray-приложений:
-        # приложение не должно завершаться только потому, что главное окно скрыто.
+        # если окно скрыто или закрыто крестиком, приложение не должно завершаться.
         self.qt_app.setQuitOnLastWindowClosed(False)
 
         logger.info("AppRuntime.__init__ | create notifier")
@@ -29,6 +29,8 @@ class AppRuntime:
 
         self._bg_started = False
 
+        # Фоновый listener запускаем до создания тяжёлого UI.
+        # Благодаря ленивому созданию pipeline этот этап теперь не должен грузить Whisper.
         logger.info("AppRuntime.__init__ | start background service before UI")
         self._start_background_service_safe()
 
@@ -54,12 +56,13 @@ class AppRuntime:
     def start(self):
         logger.info("Запуск AppRuntime.")
 
+        # На всякий случай повторно проверяем, что фоновый сервис запущен.
         self._start_background_service_safe()
 
         self.tray.show()
 
-        # Пока проблема с tray не проверена до конца, лучше показать окно при старте.
-        # Когда убедимся, что tray стабилен, можно заменить на self.window.hide().
+        # Пока НЕ скрываем приложение в трей при запуске.
+        # Окно должно открываться сразу, чтобы пользователь не терял доступ к настройкам.
         self.window.showNormal()
         self.window.raise_()
         self.window.activateWindow()

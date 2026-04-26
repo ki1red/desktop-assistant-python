@@ -1,7 +1,6 @@
 import threading
 from pynput import keyboard
 
-from app.assistant_pipeline import AssistantPipeline
 from app.session.state import session_state
 from app.adaptive.history import register_negative_feedback, register_positive_feedback
 from app.events.notifier import AssistantNotifier
@@ -15,7 +14,12 @@ logger = get_logger("background_service")
 
 class BackgroundAssistantService:
     def __init__(self):
+        # Важно:
+        # Pipeline создаём лениво, только при первом реальном использовании.
+        # Иначе при старте приложения сразу грузятся Whisper/STT/AI,
+        # что может задерживать запуск listener'а после перезагрузки Windows.
         self.pipeline = None
+
         self.notifier = AssistantNotifier()
         self.listener = None
         self._running = False
@@ -28,11 +32,29 @@ class BackgroundAssistantService:
         self._apply_config(settings_service.get_all())
         settings_service.subscribe(self._on_settings_changed)
 
-    def _get_pipeline(self) -> AssistantPipeline:
+    def _get_pipeline(self):
+        """
+        Ленивое создание основного пайплайна ассистента.
+
+        Здесь будут созданы:
+        - SpeechTranscriber;
+        - WhisperModel;
+        - CommandParser;
+        - TargetResolver;
+        - CommandExecutor;
+        - AIGateway.
+
+        Поэтому этот метод не должен вызываться при старте приложения,
+        а только при первом нажатии горячей клавиши.
+        """
         if self.pipeline is None:
             logger.info("Создание AssistantPipeline по требованию.")
+
+            from app.assistant_pipeline import AssistantPipeline
+
             self.pipeline = AssistantPipeline()
             logger.info("AssistantPipeline создан.")
+
         return self.pipeline
 
     def _apply_config(self, config_snapshot: dict):
@@ -82,9 +104,12 @@ class BackgroundAssistantService:
             if self.cancel_on_second_press:
                 logger.info("Запрошена отмена текущей операции.")
                 print("[BG] Запрошена отмена текущей операции.")
+
+                runtime_control.cancel_job()
+
                 if self.pipeline is not None:
                     self.pipeline.cancel_current_operation()
-                runtime_control.cancel_job()
+
                 self.notifier.say("Текущая операция отменена.")
             else:
                 logger.info("Ассистент уже обрабатывает предыдущую команду.")
@@ -97,9 +122,12 @@ class BackgroundAssistantService:
             try:
                 logger.info("Горячая клавиша нажата. Слушаю команду...")
                 print("[BG] Горячая клавиша нажата. Слушаю команду...")
+
                 self._beep()
+
                 pipeline = self._get_pipeline()
                 pipeline.run_once()
+
             except Exception as e:
                 logger.exception("Ошибка во время выполнения команды: %s", e)
                 print(f"[BG][ERROR] Ошибка во время выполнения команды: {e}")
@@ -186,6 +214,10 @@ class BackgroundAssistantService:
             logger.exception("Ошибка формата hotkey: %s", e)
             print(f"[BG][ERROR] Ошибка формата hotkey: {e}")
             self.notifier.say("Неверный формат горячей клавиши.")
+        except Exception as e:
+            logger.exception("Не удалось запустить listener горячих клавиш: %s", e)
+            print(f"[BG][ERROR] Не удалось запустить listener горячих клавиш: {e}")
+            self.notifier.say("Не удалось запустить горячую клавишу.")
 
     def start(self):
         if self._running:
@@ -201,11 +233,16 @@ class BackgroundAssistantService:
 
     def stop(self):
         if self.listener:
-            self.listener.stop()
+            try:
+                self.listener.stop()
+            except Exception:
+                pass
             self.listener = None
 
         if self.is_busy() and self.pipeline is not None:
             self.pipeline.cancel_current_operation()
+        elif self.is_busy():
+            runtime_control.cancel_job()
 
         self._running = False
         logger.info("Фоновый сервис остановлен.")
