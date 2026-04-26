@@ -15,7 +15,7 @@ logger = get_logger("background_service")
 
 class BackgroundAssistantService:
     def __init__(self):
-        self.pipeline = AssistantPipeline()
+        self.pipeline = None
         self.notifier = AssistantNotifier()
         self.listener = None
         self._running = False
@@ -27,6 +27,13 @@ class BackgroundAssistantService:
 
         self._apply_config(settings_service.get_all())
         settings_service.subscribe(self._on_settings_changed)
+
+    def _get_pipeline(self) -> AssistantPipeline:
+        if self.pipeline is None:
+            logger.info("Создание AssistantPipeline по требованию.")
+            self.pipeline = AssistantPipeline()
+            logger.info("AssistantPipeline создан.")
+        return self.pipeline
 
     def _apply_config(self, config_snapshot: dict):
         bg = config_snapshot.get("background", {})
@@ -75,7 +82,9 @@ class BackgroundAssistantService:
             if self.cancel_on_second_press:
                 logger.info("Запрошена отмена текущей операции.")
                 print("[BG] Запрошена отмена текущей операции.")
-                self.pipeline.cancel_current_operation()
+                if self.pipeline is not None:
+                    self.pipeline.cancel_current_operation()
+                runtime_control.cancel_job()
                 self.notifier.say("Текущая операция отменена.")
             else:
                 logger.info("Ассистент уже обрабатывает предыдущую команду.")
@@ -89,7 +98,8 @@ class BackgroundAssistantService:
                 logger.info("Горячая клавиша нажата. Слушаю команду...")
                 print("[BG] Горячая клавиша нажата. Слушаю команду...")
                 self._beep()
-                self.pipeline.run_once()
+                pipeline = self._get_pipeline()
+                pipeline.run_once()
             except Exception as e:
                 logger.exception("Ошибка во время выполнения команды: %s", e)
                 print(f"[BG][ERROR] Ошибка во время выполнения команды: {e}")
@@ -194,7 +204,7 @@ class BackgroundAssistantService:
             self.listener.stop()
             self.listener = None
 
-        if self.is_busy():
+        if self.is_busy() and self.pipeline is not None:
             self.pipeline.cancel_current_operation()
 
         self._running = False

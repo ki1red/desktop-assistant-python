@@ -7,6 +7,10 @@ from PySide6.QtWidgets import (
 from app.settings_service import settings_service
 from app.ai.ollama_model_discovery import list_available_ollama_models
 from app.ai.ollama_health import quick_server_check, check_ollama_model
+from app.logger import get_logger
+
+
+logger = get_logger("ai_widget")
 
 
 class OllamaCheckWorker(QObject):
@@ -19,23 +23,55 @@ class OllamaCheckWorker(QObject):
         self.model = model
 
     def run(self):
-        if self.mode == "server":
-            ok, message = quick_server_check(self.host)
-        else:
-            ok, message = check_ollama_model(self.host, self.model)
-        self.finished.emit(ok, message)
+        try:
+            if self.mode == "server":
+                ok, message = quick_server_check(self.host)
+            else:
+                ok, message = check_ollama_model(self.host, self.model)
+
+            self.finished.emit(ok, message)
+        except Exception as e:
+            self.finished.emit(False, f"Ошибка проверки Ollama: {e}")
+
+
+class OllamaModelsLoadWorker(QObject):
+    finished = Signal(list, str)
+
+    def __init__(self, models_path: str):
+        super().__init__()
+        self.models_path = models_path
+
+    def run(self):
+        try:
+            models = list_available_ollama_models(self.models_path)
+            self.finished.emit(models, "")
+        except Exception as e:
+            self.finished.emit([], str(e))
 
 
 class AISettingsWidget(QWidget):
     def __init__(self):
         super().__init__()
+
+        logger.info("AISettingsWidget | init_start")
+
         self.config = settings_service.get_all()
         settings_service.subscribe(self._on_settings_changed)
-        self._worker_thread = None
-        self._worker = None
+
+        self._check_thread = None
+        self._check_worker = None
+
+        self._models_thread = None
+        self._models_worker = None
+
         self._build_ui()
-        self.load_models()
+        self._apply_saved_models_to_combo()
         self.refresh_status()
+
+        # ВАЖНО:
+        # Больше НЕ вызываем self.load_models() автоматически при старте.
+        # Иначе Ollama / диск / PATH могут подвесить GUI после запуска Windows.
+        logger.info("AISettingsWidget | init_done")
 
     def _on_settings_changed(self, config_snapshot: dict):
         self.config = config_snapshot
@@ -100,6 +136,7 @@ class AISettingsWidget(QWidget):
         layout.addWidget(self.check_status_label)
 
         buttons_row = QHBoxLayout()
+
         self.check_server_btn = QPushButton("Быстрая проверка сервера")
         self.check_server_btn.clicked.connect(self.check_server)
 
@@ -116,10 +153,30 @@ class AISettingsWidget(QWidget):
         layout.addLayout(buttons_row)
 
         self.info_label = QLabel(
-            "Рекомендуется выбрать отдельную лёгкую модель для режима общения.\n"
-            "Например: llama3.2:3b, qwen2.5:3b, gemma3:4b."
+            "Модели Ollama теперь не сканируются автоматически при запуске,\n"
+            "чтобы не подвешивать интерфейс после старта Windows.\n"
+            "Для обновления списка нажмите «Обновить список моделей»."
         )
         layout.addWidget(self.info_label)
+
+    def _apply_saved_models_to_combo(self):
+        ai_cfg = settings_service.get_section("ai", {})
+
+        current_saved_model = ai_cfg.get("ollama_model", "")
+        current_chat_model = ai_cfg.get("chat_ollama_model", "")
+
+        self.ollama_model_combo.clear()
+        self.chat_ollama_model_combo.clear()
+
+        if current_saved_model:
+            self.ollama_model_combo.addItem(current_saved_model)
+            self.ollama_model_combo.setCurrentText(current_saved_model)
+
+        self.chat_ollama_model_combo.addItem("")
+
+        if current_chat_model:
+            self.chat_ollama_model_combo.addItem(current_chat_model)
+            self.chat_ollama_model_combo.setCurrentText(current_chat_model)
 
     def refresh_status(self):
         ai = self.config.get("ai", {})
@@ -135,68 +192,122 @@ class AISettingsWidget(QWidget):
         )
 
     def load_models(self):
-        models_path = self.ollama_models_path_edit.text().strip()
-        ai_cfg = settings_service.get_section("ai", {})
+        if self._models_thread is not None:
+            QMessageBox.information(self, "Модели Ollama", "Список моделей уже обновляется.")
+            return
 
+        logger.info("AISettingsWidget | load_models_start")
+
+        models_path = self.ollama_models_path_edit.text().strip()
+
+        self.refresh_models_btn.setEnabled(False)
+        self.refresh_models_btn.setText("Обновляю...")
+        self.check_status_label.setText("Обновляю список моделей Ollama...")
+
+        self._models_thread = QThread()
+        self._models_worker = OllamaModelsLoadWorker(models_path)
+        self._models_worker.moveToThread(self._models_thread)
+
+        self._models_thread.started.connect(self._models_worker.run)
+        self._models_worker.finished.connect(self._on_models_loaded)
+        self._models_worker.finished.connect(self._models_thread.quit)
+        self._models_worker.finished.connect(self._models_worker.deleteLater)
+        self._models_thread.finished.connect(self._models_thread.deleteLater)
+        self._models_thread.finished.connect(self._clear_models_worker_refs)
+
+        self._models_thread.start()
+
+    def _on_models_loaded(self, models: list, error: str):
+        logger.info("AISettingsWidget | load_models_done | count=%s | error=%s", len(models), error)
+
+        ai_cfg = settings_service.get_section("ai", {})
         current_saved_model = ai_cfg.get("ollama_model", "")
         current_chat_model = ai_cfg.get("chat_ollama_model", "")
-
-        models = list_available_ollama_models(models_path)
 
         self.ollama_model_combo.clear()
         self.chat_ollama_model_combo.clear()
 
         if models:
             self.ollama_model_combo.addItems(models)
+
             self.chat_ollama_model_combo.addItem("")
             self.chat_ollama_model_combo.addItems(models)
 
             index_main = self.ollama_model_combo.findText(current_saved_model)
             if index_main >= 0:
                 self.ollama_model_combo.setCurrentIndex(index_main)
+            elif current_saved_model:
+                self.ollama_model_combo.setEditText(current_saved_model)
             else:
                 self.ollama_model_combo.setCurrentIndex(0)
 
             index_chat = self.chat_ollama_model_combo.findText(current_chat_model)
             if index_chat >= 0:
                 self.chat_ollama_model_combo.setCurrentIndex(index_chat)
+            elif current_chat_model:
+                self.chat_ollama_model_combo.setEditText(current_chat_model)
             else:
                 self.chat_ollama_model_combo.setCurrentIndex(0)
+
+            self.check_status_label.setText(f"Список моделей обновлён. Найдено: {len(models)}")
         else:
             if current_saved_model:
-                self.ollama_model_combo.setEditText(current_saved_model)
+                self.ollama_model_combo.addItem(current_saved_model)
+                self.ollama_model_combo.setCurrentText(current_saved_model)
+
+            self.chat_ollama_model_combo.addItem("")
+
             if current_chat_model:
-                self.chat_ollama_model_combo.setEditText(current_chat_model)
+                self.chat_ollama_model_combo.addItem(current_chat_model)
+                self.chat_ollama_model_combo.setCurrentText(current_chat_model)
+
+            if error:
+                self.check_status_label.setText(f"Не удалось обновить список моделей: {error}")
+            else:
+                self.check_status_label.setText("Модели не найдены. Сохранённые значения оставлены.")
+
+        self.refresh_models_btn.setEnabled(True)
+        self.refresh_models_btn.setText("Обновить список моделей")
+        self.refresh_status()
+
+    def _clear_models_worker_refs(self):
+        self._models_worker = None
+        self._models_thread = None
 
     def _start_check(self, mode: str):
-        if self._worker_thread is not None:
+        if self._check_thread is not None:
             QMessageBox.information(self, "Проверка", "Проверка уже выполняется.")
             return
 
         host = self.ollama_host_edit.text().strip()
         model = self.chat_ollama_model_combo.currentText().strip() or self.ollama_model_combo.currentText().strip()
 
+        self.check_server_btn.setEnabled(False)
+        self.check_model_btn.setEnabled(False)
         self.check_status_label.setText("Проверка выполняется...")
 
-        self._worker_thread = QThread()
-        self._worker = OllamaCheckWorker(mode, host, model)
-        self._worker.moveToThread(self._worker_thread)
+        self._check_thread = QThread()
+        self._check_worker = OllamaCheckWorker(mode, host, model)
+        self._check_worker.moveToThread(self._check_thread)
 
-        self._worker_thread.started.connect(self._worker.run)
-        self._worker.finished.connect(self._on_check_finished)
-        self._worker.finished.connect(self._worker_thread.quit)
-        self._worker.finished.connect(self._worker.deleteLater)
-        self._worker_thread.finished.connect(self._worker_thread.deleteLater)
-        self._worker_thread.finished.connect(self._clear_worker_refs)
+        self._check_thread.started.connect(self._check_worker.run)
+        self._check_worker.finished.connect(self._on_check_finished)
+        self._check_worker.finished.connect(self._check_thread.quit)
+        self._check_worker.finished.connect(self._check_worker.deleteLater)
+        self._check_thread.finished.connect(self._check_thread.deleteLater)
+        self._check_thread.finished.connect(self._clear_check_worker_refs)
 
-        self._worker_thread.start()
+        self._check_thread.start()
 
-    def _clear_worker_refs(self):
-        self._worker = None
-        self._worker_thread = None
+    def _clear_check_worker_refs(self):
+        self._check_worker = None
+        self._check_thread = None
+        self.check_server_btn.setEnabled(True)
+        self.check_model_btn.setEnabled(True)
 
     def _on_check_finished(self, ok: bool, message: str):
         self.check_status_label.setText(message.replace("\n", " | "))
+
         if ok:
             QMessageBox.information(self, "Проверка Ollama", message)
         else:
@@ -228,6 +339,7 @@ class AISettingsWidget(QWidget):
         settings_service.update(mutator)
         self.config = settings_service.get_all()
         self.refresh_status()
+
         QMessageBox.information(
             self,
             "Готово",
