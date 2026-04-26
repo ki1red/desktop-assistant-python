@@ -1,18 +1,21 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+
+from app.app_paths import LOGS_DIR, LOG_PATH, ensure_app_dirs
 
 
-LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-
-LOG_FILE = LOG_DIR / "assistant.log"
+LOG_DIR = LOGS_DIR
+LOG_FILE = LOG_PATH
 
 
 def setup_logging():
+    ensure_app_dirs()
+
     root_logger = logging.getLogger()
     if root_logger.handlers:
         return
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     root_logger.setLevel(logging.INFO)
 
@@ -36,3 +39,5 @@ def setup_logging():
 
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
+
+    logging.getLogger("startup").info("Логирование настроено. LOG_FILE=%s", LOG_FILE)

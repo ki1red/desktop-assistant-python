@@ -9,6 +9,7 @@ import sounddevice as sd
 from app.settings_service import settings_service
 from app.logger import get_logger
 
+
 logger = get_logger("recorder")
 
 
@@ -150,6 +151,8 @@ def _apply_gain(data: np.ndarray, gain: float) -> np.ndarray:
 
 
 def _rms(data: np.ndarray) -> float:
+    if data.size == 0:
+        return 0.0
     return float(np.sqrt(np.mean(np.square(data.astype(np.float32)))))
 
 
@@ -212,6 +215,7 @@ def record_audio_to_wav() -> str:
     ) as stream:
         while total_duration < max_record_seconds:
             data, overflowed = stream.read(chunk_size)
+
             if overflowed:
                 logger.warning("Переполнение входного аудиобуфера.")
 
@@ -250,7 +254,6 @@ def record_audio_to_wav() -> str:
 
     audio = np.concatenate(frames, axis=0)
 
-    # дополнительная нормализация после записи
     audio, post_gain = _post_normalize_audio(audio, auto_gain_target_rms, max_auto_gain)
     final_rms = _rms(audio)
 
@@ -278,10 +281,12 @@ def record_audio_to_wav() -> str:
 def delete_temp_file(path: str | None):
     if not path:
         return
+
     try:
         p = Path(path)
         if p.exists():
             p.unlink()
+            logger.info("Временный аудиофайл удалён: %s", p)
     except Exception as e:
         logger.warning("Не удалось удалить временный файл %s: %s", path, e)
 
@@ -291,21 +296,36 @@ def cleanup_old_temp_files():
     temp_cfg = cfg.get("temp_cleanup", {})
     paths_cfg = cfg.get("paths", {})
 
+    if not temp_cfg.get("delete_old_temp_on_startup", True):
+        logger.info("Очистка старых temp-файлов отключена настройкой.")
+        return
+
     temp_dir = Path(paths_cfg.get("temp_dir", "temp"))
     max_age_hours = float(temp_cfg.get("max_temp_age_hours", 24))
 
     if not temp_dir.exists():
+        logger.info("Папка temp не существует, очистка не требуется: %s", temp_dir)
         return
 
     now = time.time()
     max_age_seconds = max_age_hours * 3600
+    deleted_count = 0
 
     for item in temp_dir.iterdir():
         if not item.is_file():
             continue
+
         try:
             age = now - item.stat().st_mtime
             if age > max_age_seconds:
                 item.unlink()
+                deleted_count += 1
         except Exception as e:
             logger.warning("Не удалось очистить временный файл %s: %s", item, e)
+
+    logger.info(
+        "Очистка temp завершена: dir=%s deleted=%s max_age_hours=%s",
+        temp_dir,
+        deleted_count,
+        max_age_hours,
+    )

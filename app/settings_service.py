@@ -24,8 +24,20 @@ class SettingsService:
             return deepcopy(self._config.get(section_name, default))
 
     def reload(self):
-        self.loader = ConfigLoader()
-        self.config = self.loader.get()
+        """
+        Полностью перечитывает пользовательский settings.json через ConfigLoader.
+
+        Важно:
+        обновлять нужно именно _loader и _config, потому что остальные методы
+        работают с приватными полями.
+        """
+        with self._lock:
+            self._loader = ConfigLoader()
+            self._config = self._loader.get()
+            snapshot = deepcopy(self._config)
+
+        logger.info("Конфиг перезагружен.")
+        self._notify(snapshot)
 
     def update(self, mutate_fn):
         with self._lock:

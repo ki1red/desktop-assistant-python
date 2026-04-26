@@ -14,7 +14,6 @@
     "silence_duration_stop_sec": 1.0,
     "silence_threshold": 500,
     "input_device_name": "",
-    "input_device_name": "",
     "output_device_name": "",
     "input_gain": 1.0,
     "meter_good_level_min": 18,
@@ -27,7 +26,9 @@
   "speech": {
     "whisper_model_size": "small",
     "whisper_compute_type": "int8",
-    "whisper_model_path": "models/faster-whisper-small"
+    "whisper_model_path": "models/faster-whisper-small",
+    "command_language": "ru",
+    "fallback_to_auto_language": true
   },
   "search": {
     "index_batch_size": 1000,
@@ -38,7 +39,10 @@
     "usage_direct_open_score": 85
   },
   "search_modes": {
-    "enable_deep_search_prompt": true
+    "enable_deep_search_prompt": true,
+    "allow_deep_search_after_prompt": true,
+    "auto_deep_search": false,
+    "fast_search_timeout_sec": 1.5
   },
   "temp_cleanup": {
     "delete_record_after_transcribe": false,
@@ -46,19 +50,37 @@
     "max_temp_age_hours": 24
   },
   "assistant": {
-    "language": "ru"
+    "language": "ru",
+    "announce_before_execution": true,
+    "announce_after_execution": true,
+    "debug_candidates": true
   },
   "priority_roots": {
+    "cwd": true,
+    "desktop": true,
+    "documents": true,
+    "downloads": true,
+    "recent": true,
+    "start_menu_user": true,
+    "start_menu_common": true,
     "extra_paths": []
   },
   "background": {
+    "enabled": true,
     "hotkey": "<ctrl>+<alt>+<space>",
     "double_press_cancels": true
   },
   "providers": {
     "default_web_search_provider": "browser_google",
     "default_youtube_provider": "youtube_search",
-    "default_music_provider": "yandex_music"
+    "default_music_provider": "yandex_music",
+    "supported_music_providers": [
+      "yandex_music",
+      "vk_music",
+      "spotify",
+      "youtube_music",
+      "youtube"
+    ]
   },
   "voice": {
     "enabled": true,
@@ -66,6 +88,11 @@
     "volume": 1.0,
     "heartbeat_interval_sec": 8,
     "phrases": {
+      "listening": [
+        "Слушаю.",
+        "Говорите.",
+        "Я слушаю."
+      ],
       "processing": [
         "Обрабатываю запрос.",
         "Секунду, разбираюсь.",
@@ -100,6 +127,19 @@
     "speak_responses": true,
     "ollama_host": "http://localhost:11434",
     "ollama_model": "gemma3:4b",
-    "chat_ollama_model": "gemma3:4b"
+    "chat_ollama_model": "gemma3:4b",
+    "ollama_models_path": "",
+    "wake_phrases": [
+      "ассистент",
+      "режим общения",
+      "включи режим общения",
+      "давай поговорим"
+    ],
+    "stop_phrases": [
+      "выключи режим общения",
+      "хватит общаться",
+      "режим общения выключить",
+      "заверши общение"
+    ]
   }
 }
