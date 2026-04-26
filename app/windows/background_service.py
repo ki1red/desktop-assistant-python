@@ -14,10 +14,6 @@ logger = get_logger("background_service")
 
 class BackgroundAssistantService:
     def __init__(self):
-        # Важно:
-        # Pipeline создаём лениво, только при первом реальном использовании.
-        # Иначе при старте приложения сразу грузятся Whisper/STT/AI,
-        # что может задерживать запуск listener'а после перезагрузки Windows.
         self.pipeline = None
 
         self.notifier = AssistantNotifier()
@@ -33,20 +29,6 @@ class BackgroundAssistantService:
         settings_service.subscribe(self._on_settings_changed)
 
     def _get_pipeline(self):
-        """
-        Ленивое создание основного пайплайна ассистента.
-
-        Здесь будут созданы:
-        - SpeechTranscriber;
-        - WhisperModel;
-        - CommandParser;
-        - TargetResolver;
-        - CommandExecutor;
-        - AIGateway.
-
-        Поэтому этот метод не должен вызываться при старте приложения,
-        а только при первом нажатии горячей клавиши.
-        """
         if self.pipeline is None:
             logger.info("Создание AssistantPipeline по требованию.")
 
@@ -79,6 +61,11 @@ class BackgroundAssistantService:
     def _on_settings_changed(self, config_snapshot: dict):
         self._apply_config(config_snapshot)
 
+    def _is_microphone_allowed(self) -> bool:
+        cfg = settings_service.get_all()
+        audio = cfg.get("audio", {})
+        return bool(audio.get("microphone_enabled", True))
+
     def _beep(self):
         try:
             import winsound
@@ -98,6 +85,12 @@ class BackgroundAssistantService:
         if self.is_paused:
             logger.info("Команда проигнорирована: ассистент на паузе.")
             self.notifier.say("Ассистент на паузе.")
+            return
+
+        if not self._is_microphone_allowed():
+            logger.info("Команда проигнорирована: использование микрофона отключено в настройках.")
+            print("[BG] Команда проигнорирована: микрофон отключён в настройках.")
+            self.notifier.say("Микрофон отключён. Включите его во вкладке Аудио.")
             return
 
         if self.is_busy():

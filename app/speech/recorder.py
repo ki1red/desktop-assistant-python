@@ -175,6 +175,10 @@ def record_audio_to_wav() -> str:
     cfg = settings_service.get_all()
     audio_cfg = cfg["audio"]
     paths_cfg = cfg["paths"]
+    if not bool(audio_cfg.get("microphone_enabled", True)):
+        raise MicrophoneSelectionError(
+            "Использование микрофона отключено в настройках. Включите микрофон во вкладке «Аудио»."
+        )
 
     sample_rate = int(audio_cfg.get("sample_rate", 16000))
     channels = int(audio_cfg.get("channels", 1))

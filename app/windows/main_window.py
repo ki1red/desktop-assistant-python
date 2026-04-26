@@ -4,12 +4,10 @@ from app.windows.logs_widget import LogsWidget
 from app.windows.providers_widget import ProvidersWidget
 from app.windows.quick_targets_widget import QuickTargetsWidget
 from app.windows.paths_widget import PathsWidget
-from app.windows.voice_widget import VoiceSettingsWidget
 from app.windows.audio_widget import AudioSettingsWidget
 from app.windows.history_widget import HistoryWidget
 from app.windows.custom_commands_widget import CustomCommandsWidget
 from app.windows.status_widget import StatusWidget
-from app.windows.background_settings_widget import BackgroundSettingsWidget
 from app.windows.ai_widget import AISettingsWidget
 from app.logger import get_logger
 
@@ -25,20 +23,93 @@ class AssistantMainWindow(QMainWindow):
         self.setWindowTitle("Local PC Assistant")
         self.resize(1250, 860)
 
+        self.setStyleSheet("""
+            QMainWindow {
+                background: #f7f8fb;
+            }
+
+            QTabWidget::pane {
+                border: 1px solid #d6d9e0;
+                background: #ffffff;
+                border-radius: 10px;
+            }
+
+            QTabBar::tab {
+                font-size: 15px;
+                padding: 10px 18px;
+                margin-right: 2px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                background: #eceff5;
+            }
+
+            QTabBar::tab:selected {
+                background: #ffffff;
+                font-weight: 600;
+            }
+
+            QLabel {
+                font-size: 17px;
+            }
+
+            QPushButton {
+                font-size: 16px;
+                padding: 8px 14px;
+                border-radius: 8px;
+                border: 1px solid #b8beca;
+                background: #ffffff;
+            }
+
+            QPushButton:hover {
+                background: #f0f3f8;
+            }
+
+            QPushButton:pressed {
+                background: #e4e8f0;
+            }
+
+            QPushButton:disabled {
+                color: #9aa3b2;
+                background: #eef1f5;
+                border: 1px solid #d6dbe5;
+            }
+
+            QLineEdit, QComboBox {
+                font-size: 16px;
+                padding: 7px;
+                border-radius: 7px;
+                border: 1px solid #b8beca;
+                background: #ffffff;
+            }
+
+            QCheckBox {
+                font-size: 17px;
+                spacing: 10px;
+            }
+
+            QCheckBox::indicator {
+                width: 24px;
+                height: 24px;
+            }
+
+            QTableWidget {
+                font-size: 14px;
+            }
+        """)
+
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self._on_tab_changed)
+        self._previous_tab_index = -1
 
-        self._add_tab("Статус", lambda: StatusWidget(bg_service))
-        self._add_tab("Фоновый режим", BackgroundSettingsWidget)
-        self._add_tab("AI", AISettingsWidget)
-        self._add_tab("Провайдеры", ProvidersWidget)
+        self._add_tab("Состояние", lambda: StatusWidget(bg_service))
+        self._add_tab("ИИ", AISettingsWidget)
+        self._add_tab("Аудио", AudioSettingsWidget)
+        self._add_tab("Логи", LogsWidget)
         self._add_tab("Быстрые цели", QuickTargetsWidget)
-        self._add_tab("Обязательные папки", PathsWidget)
-        self._add_tab("Голос", VoiceSettingsWidget)
-        self._add_tab("Запись", AudioSettingsWidget)
+        self._add_tab("Папки", PathsWidget)
+        self._add_tab("Провайдеры", ProvidersWidget)
         self._add_tab("История", HistoryWidget)
         self._add_tab("Пользовательские команды", CustomCommandsWidget)
-        self._add_tab("Логи", LogsWidget)
 
         self.setCentralWidget(self.tabs)
 
@@ -56,8 +127,28 @@ class AssistantMainWindow(QMainWindow):
             raise
 
     def _on_tab_changed(self, index: int):
+        if self._previous_tab_index >= 0 and self._previous_tab_index != index:
+            previous_widget = self.tabs.widget(self._previous_tab_index)
+            previous_title = self.tabs.tabText(self._previous_tab_index)
+
+            if previous_widget and hasattr(previous_widget, "on_tab_deactivated"):
+                try:
+                    logger.info("UI | MainWindow | deactivate_tab | %s", previous_title)
+                    previous_widget.on_tab_deactivated()
+                except Exception as e:
+                    logger.exception("UI | MainWindow | tab deactivation failed | %s | %s", previous_title, e)
+
         title = self.tabs.tabText(index) if index >= 0 else ""
         logger.info("UI | MainWindow | switch_tab | %s", title)
+
+        widget = self.tabs.widget(index)
+        if widget and hasattr(widget, "on_tab_activated"):
+            try:
+                widget.on_tab_activated()
+            except Exception as e:
+                logger.exception("UI | MainWindow | tab activation failed | %s | %s", title, e)
+
+        self._previous_tab_index = index
 
     def closeEvent(self, event):
         self.hide()

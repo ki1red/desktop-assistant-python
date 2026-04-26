@@ -4,15 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Немного улучшена работа с пустыми командами. Больше не вылезают ошибки на пустых голосовых.">
-      <change afterPath="$PROJECT_DIR$/app/startup_diagnostics.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает.">
+      <change afterPath="$PROJECT_DIR$/app/windows/floating_save_bar.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/bootstrap.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/bootstrap.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/logging_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/logging_config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/settings_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/settings_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/logs_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/logs_widget.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assistant_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/ai_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/ai_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/status_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/status_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -280,7 +280,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777188921227</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает.">
+      <option name="closed" value="true" />
+      <created>1777193391462</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1777193391462</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -317,7 +325,8 @@
     <MESSAGE value="Внедрено использование ИИ после STT" />
     <MESSAGE value="С горем пополам починил первый запуск ассистента после запуска системы" />
     <MESSAGE value="Немного улучшена работа с пустыми командами. Больше не вылезают ошибки на пустых голосовых." />
-    <option name="LAST_COMMIT_MESSAGE" value="Немного улучшена работа с пустыми командами. Больше не вылезают ошибки на пустых голосовых." />
+    <MESSAGE value="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает." />
+    <option name="LAST_COMMIT_MESSAGE" value="Подправлено логирование, некоторые файлы, базовый конфиг. Протестировано. Всё работает." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

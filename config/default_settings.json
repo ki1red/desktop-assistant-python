@@ -21,7 +21,8 @@
     "auto_input_gain_enabled": true,
     "auto_gain_target_rms": 2200,
     "max_auto_gain": 10.0,
-    "no_signal_rms_threshold": 120
+    "no_signal_rms_threshold": 120,
+    "microphone_enabled": true
   },
   "speech": {
     "whisper_model_size": "small",
