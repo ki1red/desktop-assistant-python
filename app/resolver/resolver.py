@@ -9,6 +9,10 @@ from app.adaptive.history import get_direct_usage_match
 from app.adaptive.quick_access import get_quick_access_match
 from app.config import ASSISTANT_SETTINGS, USAGE_DIRECT_OPEN_SCORE, SEARCH_MODE_SETTINGS
 from app.runtime_control import runtime_control
+from app.logger import get_logger
+
+
+logger = get_logger("resolver")
 
 
 class CandidateWrapper:
@@ -29,6 +33,13 @@ class TargetResolver:
             print(f"  - {c.name} | {c.score:.1f} | {c.path}")
 
     def _is_confident_enough(self, candidates):
+        """
+        Старый метод оставлен для совместимости.
+
+        Раньше он решал, нужно ли спрашивать подтверждение.
+        Теперь подтверждения отключены, но метод может пригодиться
+        для будущей аналитики качества выбора.
+        """
         if not candidates:
             return False
 
@@ -66,46 +77,91 @@ class TargetResolver:
         return False
 
     def _confirmation_message(self, candidates):
+        """
+        Старый метод оставлен, но больше не используется для голосового подтверждения.
+        """
         numbered = []
         for i, c in enumerate(candidates[:3], start=1):
             numbered.append(f"{i}. {c.name}")
         joined = ", ".join(numbered)
-        return f"Я не совсем уверен. Подходящие варианты: {joined}. Скажи: первый, второй, третий, да или нет."
+        return f"Подходящие варианты: {joined}."
 
     def _wrap_result(self, candidates, not_found_error: str, force_confirmation: bool = False):
+        """
+        Возвращает результат поиска.
+
+        Новая логика:
+        - если кандидатов нет — ошибка;
+        - если кандидаты есть — всегда выбираем первого;
+        - подтверждение через «первый/второй/третий» больше не запрашиваем.
+        """
         if not candidates:
             return ResolvedTarget(success=False, error=not_found_error)
 
         best = candidates[0]
 
-        if not force_confirmation:
-            if len(candidates) == 1 and best.target_type == "app" and best.score >= 76:
-                return ResolvedTarget(
-                    success=True,
-                    target_type=best.target_type,
-                    target_name=best.name,
-                    target_path=best.path,
-                    candidates=candidates
-                )
+        if force_confirmation:
+            logger.info(
+                "Resolver | подтверждение было бы нужно по старой логике, но теперь включён автовыбор первого кандидата."
+            )
 
-            if self._is_confident_enough(candidates):
-                return ResolvedTarget(
-                    success=True,
-                    target_type=best.target_type,
-                    target_name=best.name,
-                    target_path=best.path,
-                    candidates=candidates
-                )
+        logger.info(
+            "Resolver | выбран первый кандидат | name=%s | type=%s | score=%s | path=%s",
+            best.name,
+            best.target_type,
+            getattr(best, "score", None),
+            best.path,
+        )
 
         return ResolvedTarget(
-            success=False,
+            success=True,
             target_type=best.target_type,
             target_name=best.name,
             target_path=best.path,
             candidates=candidates,
-            needs_confirmation=True,
-            confirmation_message=self._confirmation_message(candidates)
+            needs_confirmation=False,
+            confirmation_message=None,
+            suggests_deep_search=False,
         )
+
+    def _auto_deep_search_enabled(self) -> bool:
+        """
+        Проверяет, можно ли автоматически запускать глубокий поиск.
+
+        Поддерживаем два варианта:
+        - новый auto_deep_search;
+        - старый allow_deep_search_after_prompt.
+
+        Так старые настройки не ломаются: если раньше deep search был разрешён
+        после вопроса, теперь он просто выполняется автоматически.
+        """
+        return bool(
+            SEARCH_MODE_SETTINGS.get("auto_deep_search", False)
+            or SEARCH_MODE_SETTINGS.get("allow_deep_search_after_prompt", True)
+        )
+
+    def _run_auto_deep_search_or_fail(self, command: ParsedCommand, fallback_error: str) -> ResolvedTarget:
+        """
+        Автоматически запускает глубокий поиск вместо вопроса пользователю.
+        """
+        if runtime_control.is_cancelled():
+            return ResolvedTarget(success=False, error="Операция отменена пользователем.")
+
+        if not self._auto_deep_search_enabled():
+            logger.info(
+                "Resolver | deep search отключён настройками. intent=%s target=%s",
+                command.intent,
+                command.target_text,
+            )
+            return ResolvedTarget(success=False, error=fallback_error)
+
+        logger.info(
+            "Resolver | быстрый поиск ничего не дал, запускаю deep search автоматически | intent=%s target=%s",
+            command.intent,
+            command.target_text,
+        )
+
+        return self.resolve(command, deep_search=True)
 
     def _from_quick_access(self, query: str, allowed_types: list[str]):
         quick = get_quick_access_match(query, allowed_types)
@@ -114,7 +170,7 @@ class TargetResolver:
                 success=True,
                 target_type=quick["target_type"],
                 target_name=quick["name"],
-                target_path=quick["path"]
+                target_path=quick["path"],
             )
         return None
 
@@ -125,7 +181,7 @@ class TargetResolver:
                 success=True,
                 target_type=usage_match["target_type"],
                 target_name=usage_match["name"],
-                target_path=usage_match["path"]
+                target_path=usage_match["path"],
             )
         return None
 
@@ -152,7 +208,12 @@ class TargetResolver:
         if usage_hit:
             return [CandidateWrapper(usage_hit.target_name, usage_hit.target_path, usage_hit.target_type)]
 
-        file_candidates = search_indexed_targets(query, "file", generic_mode=generic_mode, deep_search=deep_search)
+        file_candidates = search_indexed_targets(
+            query,
+            "file",
+            generic_mode=generic_mode,
+            deep_search=deep_search,
+        )
         if file_candidates:
             self._debug_print("file candidates", file_candidates)
         return file_candidates
@@ -166,21 +227,29 @@ class TargetResolver:
         if usage_hit:
             return [CandidateWrapper(usage_hit.target_name, usage_hit.target_path, usage_hit.target_type)]
 
-        folder_candidates = search_indexed_targets(query, "folder", generic_mode=False, deep_search=deep_search)
+        folder_candidates = search_indexed_targets(
+            query,
+            "folder",
+            generic_mode=False,
+            deep_search=deep_search,
+        )
         if folder_candidates:
             self._debug_print("folder candidates", folder_candidates)
         return folder_candidates
 
     def _deep_search_prompt(self):
-        if not SEARCH_MODE_SETTINGS.get("allow_deep_search_after_prompt", True):
-            return ResolvedTarget(success=False, error="Не удалось определить, что именно открыть.")
+        """
+        Старый метод оставлен для совместимости, но голосовой prompt отключён.
 
+        Теперь resolver не должен возвращать suggests_deep_search=True,
+        потому что пользователь больше не должен отвечать «да/нет».
+        """
         return ResolvedTarget(
             success=False,
             error="Быстрый поиск не дал результата.",
-            needs_confirmation=True,
-            suggests_deep_search=True,
-            confirmation_message="Быстрый поиск ничего не дал. Выполнить глубокий поиск по системе?"
+            needs_confirmation=False,
+            suggests_deep_search=False,
+            confirmation_message=None,
         )
 
     def resolve(self, command: ParsedCommand, deep_search: bool = False) -> ResolvedTarget:
@@ -199,8 +268,14 @@ class TargetResolver:
         if command.intent == "select_candidate":
             return ResolvedTarget(success=False, error="select_candidate")
 
-        if not command.target_text and command.intent not in {"negative_feedback", "confirm_deep_search",
-                                                              "reject_deep_search", "select_candidate"}:
+        service_intents_without_target = {
+            "negative_feedback",
+            "confirm_deep_search",
+            "reject_deep_search",
+            "select_candidate",
+        }
+
+        if not command.target_text and command.intent not in service_intents_without_target:
             return ResolvedTarget(success=False, error="Не удалось выделить цель команды.")
 
         explicit_path = detect_explicit_path(command.target_text)
@@ -210,7 +285,7 @@ class TargetResolver:
                 success=True,
                 target_type=target_type,
                 target_name=Path(explicit_path).name,
-                target_path=explicit_path
+                target_path=explicit_path,
             )
 
         if looks_like_explicit_path(command.target_text):
@@ -221,7 +296,7 @@ class TargetResolver:
                     success=True,
                     target_type=target_type,
                     target_name=Path(message).name,
-                    target_path=message
+                    target_path=message,
                 )
             return ResolvedTarget(success=False, error=message)
 
@@ -229,27 +304,42 @@ class TargetResolver:
             return ResolvedTarget(success=False, error="Операция отменена пользователем.")
 
         if command.intent == "open_file" or command.intent == "play_media":
-            candidates = self._resolve_file_candidates(command.target_text, generic_mode=False, deep_search=deep_search)
+            candidates = self._resolve_file_candidates(
+                command.target_text,
+                generic_mode=False,
+                deep_search=deep_search,
+            )
+
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
+
             if not candidates and not deep_search:
-                return self._deep_search_prompt()
+                return self._run_auto_deep_search_or_fail(command, "Файл не найден.")
+
             return self._wrap_result(candidates, "Файл не найден.")
 
         if command.intent == "open_folder":
-            candidates = self._resolve_folder_candidates(command.target_text, deep_search=deep_search)
+            candidates = self._resolve_folder_candidates(
+                command.target_text,
+                deep_search=deep_search,
+            )
+
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
+
             if not candidates and not deep_search:
-                return self._deep_search_prompt()
+                return self._run_auto_deep_search_or_fail(command, "Папка не найдена.")
+
             return self._wrap_result(candidates, "Папка не найдена.")
 
         if command.intent in ["open_app"]:
             candidates = self._resolve_app_candidates(command.target_text)
+
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
-            if not candidates and not deep_search:
-                return self._deep_search_prompt()
+
+            # Для приложений отдельного deep_search сейчас нет:
+            # find_best_app_matches уже ищет по приоритетным и общим источникам.
             return self._wrap_result(candidates, "Не удалось надежно определить приложение.")
 
         if command.intent == "generic_open":
@@ -264,11 +354,21 @@ class TargetResolver:
             if app_candidates and generic_short and len(app_candidates) >= 2:
                 top1 = app_candidates[0]
                 top2 = app_candidates[1]
+
                 if abs(top1.score - top2.score) <= 8:
+                    logger.info(
+                        "Resolver | неоднозначный короткий app-запрос, но выбираю первый вариант автоматически | "
+                        "top1=%s score=%s | top2=%s score=%s",
+                        top1.name,
+                        top1.score,
+                        top2.name,
+                        top2.score,
+                    )
+
                     return self._wrap_result(
                         app_candidates,
                         "Не удалось определить, что открыть.",
-                        force_confirmation=True
+                        force_confirmation=True,
                     )
 
             if self._is_good_enough_to_stop(app_candidates):
@@ -282,8 +382,11 @@ class TargetResolver:
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
 
-            file_candidates = self._resolve_file_candidates(command.target_text, generic_mode=True,
-                                                            deep_search=deep_search)
+            file_candidates = self._resolve_file_candidates(
+                command.target_text,
+                generic_mode=True,
+                deep_search=deep_search,
+            )
 
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
@@ -291,7 +394,10 @@ class TargetResolver:
             if self._is_good_enough_to_stop(file_candidates):
                 return self._wrap_result(file_candidates, "Не удалось определить, что открыть.")
 
-            folder_candidates = self._resolve_folder_candidates(command.target_text, deep_search=deep_search)
+            folder_candidates = self._resolve_folder_candidates(
+                command.target_text,
+                deep_search=deep_search,
+            )
 
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
@@ -304,14 +410,14 @@ class TargetResolver:
             best_folder = folder_candidates[0] if folder_candidates else None
 
             if best_app and (
-                    not best_file or best_app.score >= best_file.score - 4
+                not best_file or best_app.score >= best_file.score - 4
             ) and (
-                    not best_folder or best_app.score >= best_folder.score - 4
+                not best_folder or best_app.score >= best_folder.score - 4
             ):
                 return self._wrap_result(app_candidates, "Не удалось определить, что открыть.")
 
             if best_file and (
-                    not best_folder or best_file.score >= best_folder.score - 3
+                not best_folder or best_file.score >= best_folder.score - 3
             ):
                 return self._wrap_result(file_candidates, "Не удалось определить, что открыть.")
 
@@ -319,7 +425,10 @@ class TargetResolver:
                 return self._wrap_result(folder_candidates, "Не удалось определить, что открыть.")
 
             if not deep_search:
-                return self._deep_search_prompt()
+                return self._run_auto_deep_search_or_fail(
+                    command,
+                    "Не удалось определить, что именно открыть.",
+                )
 
             return ResolvedTarget(success=False, error="Не удалось определить, что именно открыть.")
 

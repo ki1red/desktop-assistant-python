@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 
 
 @dataclass
@@ -14,6 +14,15 @@ class ParsedCommand:
     normalized_text: str
     intent: str
     target_text: str
+
+    # Новые поля для plugin-architecture.
+    # У них есть значения по умолчанию, поэтому старый код,
+    # который создаёт ParsedCommand(raw, normalized, intent, target),
+    # продолжит работать без изменений.
+    plugin_id: Optional[str] = None
+    command_id: Optional[str] = None
+    confidence: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

@@ -59,7 +59,14 @@
     "voice_activation_phrase": "ассистент",
     "comment_actions": true,
     "wake_record_seconds": 1.8,
-    "wake_check_interval_sec": 0.35
+    "wake_check_interval_sec": 0.35,
+    "enabled_plugins": [
+      "filesystem",
+      "web",
+      "music",
+      "dictation",
+      "chat"
+    ]
   },
   "priority_roots": {
     "cwd": true,
@@ -140,17 +147,14 @@
     "refine_dictation": true,
     "command_refine_timeout_sec": 4,
     "speak_responses": true,
-
     "provider_endpoint": "",
     "api_key": "",
     "remote_model": "",
     "remote_chat_model": "",
-
     "ollama_host": "http://localhost:11434",
     "ollama_model": "gemma3:4b",
     "chat_ollama_model": "gemma3:4b",
     "ollama_models_path": "",
-
     "wake_phrases": [
       "ассистент",
       "режим общения",

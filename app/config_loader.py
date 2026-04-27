@@ -14,13 +14,24 @@ from app.app_paths import (
 )
 
 
+DEFAULT_PLUGIN_ENABLED = {
+    "filesystem": True,
+    "web": True,
+    "music": True,
+    "dictation": True,
+    "chat": True,
+}
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     result = copy.deepcopy(base)
+
     for key, value in (override or {}).items():
         if isinstance(value, dict) and isinstance(result.get(key), dict):
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = value
+
     return result
 
 
@@ -43,13 +54,21 @@ def _resolve_existing_paths() -> list[str]:
     ]
 
     result = []
-    for p in candidates:
-        if p.exists():
-            result.append(str(p))
+    for path in candidates:
+        if path.exists():
+            result.append(str(path))
+
     return sorted(set(result))
 
 
 def _normalize_runtime_paths(cfg: dict) -> dict:
+    """
+    Приводит runtime-пути к реальным путям AppData.
+
+    Даже если в default_settings.json указано temp/data,
+    в пользовательский settings.json должны попадать реальные пути:
+    C:\\Users\\...\\AppData\\Local\\LocalAssistant\\...
+    """
     cfg.setdefault("paths", {})
     cfg["paths"]["temp_dir"] = str(TEMP_DIR)
     cfg["paths"]["data_dir"] = str(DATA_DIR)
@@ -58,9 +77,87 @@ def _normalize_runtime_paths(cfg: dict) -> dict:
 
     cfg.setdefault("priority_roots", {})
     extra_paths = cfg["priority_roots"].get("extra_paths", [])
+
     if not extra_paths:
         cfg["priority_roots"]["extra_paths"] = _resolve_existing_paths()
 
+    return cfg
+
+
+def _normalize_plugins(cfg: dict) -> dict:
+    """
+    Мигрирует настройки плагинов к новому формату.
+
+    Новый основной формат:
+    {
+      "plugins": {
+        "enabled": {
+          "filesystem": true,
+          "web": true,
+          "music": true,
+          "dictation": true,
+          "chat": true
+        }
+      }
+    }
+
+    Старый формат:
+    {
+      "assistant": {
+        "enabled_plugins": ["filesystem", "web", ...]
+      }
+    }
+
+    Старый формат не удаляем, а синхронизируем,
+    чтобы старые части проекта не сломались.
+    """
+    cfg.setdefault("assistant", {})
+    cfg.setdefault("plugins", {})
+
+    enabled_map = cfg["plugins"].get("enabled")
+
+    if isinstance(enabled_map, dict):
+        normalized_enabled = {}
+
+        for plugin_id, default_value in DEFAULT_PLUGIN_ENABLED.items():
+            normalized_enabled[plugin_id] = bool(enabled_map.get(plugin_id, default_value))
+
+        # Сохраняем неизвестные plugin_id для будущих внешних плагинов.
+        for plugin_id, value in enabled_map.items():
+            plugin_id = str(plugin_id)
+            if plugin_id not in normalized_enabled:
+                normalized_enabled[plugin_id] = bool(value)
+
+    else:
+        legacy_enabled = cfg.get("assistant", {}).get("enabled_plugins")
+
+        if isinstance(legacy_enabled, list):
+            legacy_set = {str(item) for item in legacy_enabled}
+            normalized_enabled = {
+                plugin_id: plugin_id in legacy_set
+                for plugin_id in DEFAULT_PLUGIN_ENABLED
+            }
+        else:
+            normalized_enabled = dict(DEFAULT_PLUGIN_ENABLED)
+
+    cfg["plugins"]["enabled"] = normalized_enabled
+
+    # Совместимый старый список. Его пока не удаляем.
+    cfg["assistant"]["enabled_plugins"] = [
+        plugin_id
+        for plugin_id, enabled in normalized_enabled.items()
+        if enabled
+    ]
+
+    return cfg
+
+
+def _normalize_config(cfg: dict) -> dict:
+    """
+    Общая нормализация конфига после merge и перед сохранением.
+    """
+    cfg = _normalize_runtime_paths(cfg)
+    cfg = _normalize_plugins(cfg)
     return cfg
 
 
@@ -83,15 +180,17 @@ class ConfigLoader:
             user_cfg = {}
 
         merged = _deep_merge(defaults, user_cfg)
-        merged = _normalize_runtime_paths(merged)
+        merged = _normalize_config(merged)
         return merged
 
     def get(self) -> dict:
         return self.data
 
     def save(self, data: dict):
-        data = _normalize_runtime_paths(data)
+        data = _normalize_config(data)
+
         ensure_app_dirs()
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
         self.data = data

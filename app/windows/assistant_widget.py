@@ -19,6 +19,7 @@ from app.settings_service import settings_service
 from app.logger import get_logger
 from app.windows.ui_kit import make_page_title
 from app.windows.floating_save_bar import FloatingSaveBar
+from app.plugins.settings import DEFAULT_PLUGIN_ENABLED, get_plugin_enabled_map
 
 
 logger = get_logger("assistant_widget")
@@ -32,6 +33,35 @@ HOTKEY_KEY_OPTIONS = [
     ("F10", "<f10>"),
     ("F11", "<f11>"),
     ("F12", "<f12>"),
+]
+
+
+PLUGIN_OPTIONS = [
+    (
+        "filesystem",
+        "Файловая система",
+        "Открытие приложений, файлов и папок из локального индекса.",
+    ),
+    (
+        "web",
+        "Веб-поиск",
+        "Поиск в интернете и поиск на YouTube через выбранные провайдеры.",
+    ),
+    (
+        "music",
+        "Музыка",
+        "Поиск музыки через выбранный музыкальный сервис.",
+    ),
+    (
+        "dictation",
+        "Диктовка",
+        "Режим ввода распознанной речи как текста в активное окно.",
+    ),
+    (
+        "chat",
+        "Общение с ИИ",
+        "Режим диалога с локальной или подключённой ИИ-моделью.",
+    ),
 ]
 
 
@@ -65,6 +95,8 @@ class AssistantWidget(QWidget):
         self._dirty = False
         self._saved_form_state = {}
 
+        self.plugin_checkboxes: dict[str, QCheckBox] = {}
+
         self._build_ui()
         self._connect_change_signals()
         self._load_from_settings(reset_dirty=True)
@@ -86,7 +118,7 @@ class AssistantWidget(QWidget):
 
         root.addLayout(header)
 
-        card = InfoCard()
+        main_card = InfoCard()
 
         description = QLabel(
             "Здесь настраивается поведение ассистента: голос, способ активации "
@@ -94,7 +126,7 @@ class AssistantWidget(QWidget):
         )
         description.setWordWrap(True)
         description.setStyleSheet("font-size: 18px; color: #4b5563;")
-        card.layout.addWidget(description)
+        main_card.layout.addWidget(description)
 
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight)
@@ -135,7 +167,8 @@ class AssistantWidget(QWidget):
 
         self.hotkey_widget.setToolTip(
             "Сочетание клавиш, по которому ассистент начинает слушать команду. "
-            "Например: Ctrl + Alt + Пробел."
+            "Например: Ctrl + Alt + F8. F8-F12 безопаснее, чем Пробел, "
+            "потому что не нажимают активные кнопки в интерфейсе."
         )
 
         self.voice_phrase_edit = QLineEdit()
@@ -157,8 +190,31 @@ class AssistantWidget(QWidget):
         form.addRow("Обращение:", self.voice_phrase_edit)
         form.addRow("", self.comment_actions_checkbox)
 
-        card.layout.addLayout(form)
-        root.addWidget(card)
+        main_card.layout.addLayout(form)
+        root.addWidget(main_card)
+
+        plugins_card = InfoCard()
+
+        plugins_title = QLabel("Подключённые возможности")
+        plugins_title.setStyleSheet("font-size: 24px; font-weight: 600; color: #111827;")
+        plugins_card.layout.addWidget(plugins_title)
+
+        plugins_description = QLabel(
+            "Здесь можно включать и выключать отдельные возможности ассистента. "
+            "Отключённый плагин больше не будет перехватывать голосовые команды."
+        )
+        plugins_description.setWordWrap(True)
+        plugins_description.setStyleSheet("font-size: 17px; color: #4b5563;")
+        plugins_card.layout.addWidget(plugins_description)
+
+        for plugin_id, title, tooltip in PLUGIN_OPTIONS:
+            checkbox = QCheckBox(title)
+            checkbox.setToolTip(tooltip)
+            checkbox.setStyleSheet("font-size: 17px;")
+            self.plugin_checkboxes[plugin_id] = checkbox
+            plugins_card.layout.addWidget(checkbox)
+
+        root.addWidget(plugins_card)
         root.addStretch(1)
 
         self.save_bar = FloatingSaveBar(self, "Сохранить")
@@ -175,6 +231,9 @@ class AssistantWidget(QWidget):
 
         self.voice_phrase_edit.textChanged.connect(self._update_save_buttons)
         self.comment_actions_checkbox.stateChanged.connect(self._update_save_buttons)
+
+        for checkbox in self.plugin_checkboxes.values():
+            checkbox.stateChanged.connect(self._update_save_buttons)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -289,6 +348,28 @@ class AssistantWidget(QWidget):
 
         self.hotkey_key_combo.setCurrentIndex(0)
 
+    def _load_plugins_to_controls(self):
+        """
+        Загружает состояние чекбоксов плагинов из settings.json.
+
+        Если блока plugins.enabled ещё нет, используются значения по умолчанию:
+        все базовые плагины включены.
+        """
+        enabled_map = get_plugin_enabled_map()
+
+        for plugin_id, checkbox in self.plugin_checkboxes.items():
+            default_value = DEFAULT_PLUGIN_ENABLED.get(plugin_id, True)
+            checkbox.setChecked(bool(enabled_map.get(plugin_id, default_value)))
+
+    def _capture_plugins_state(self) -> dict[str, bool]:
+        """
+        Собирает состояние чекбоксов подключённых возможностей.
+        """
+        return {
+            plugin_id: checkbox.isChecked()
+            for plugin_id, checkbox in self.plugin_checkboxes.items()
+        }
+
     def _load_from_settings(self, reset_dirty: bool):
         self._loading_controls = True
 
@@ -314,6 +395,8 @@ class AssistantWidget(QWidget):
             bool(voice.get("enabled", True))
         )
 
+        self._load_plugins_to_controls()
+
         self._loading_controls = False
 
         self._update_activation_visibility()
@@ -331,6 +414,7 @@ class AssistantWidget(QWidget):
             "hotkey": self._compose_hotkey(),
             "voice_activation_phrase": self.voice_phrase_edit.text().strip() or "ассистент",
             "comment_actions": self.comment_actions_checkbox.isChecked(),
+            "plugins_enabled": self._capture_plugins_state(),
         }
 
     def _set_save_buttons_enabled(self, enabled: bool):
@@ -350,6 +434,8 @@ class AssistantWidget(QWidget):
             cfg.setdefault("voice", {})
             cfg.setdefault("assistant", {})
             cfg.setdefault("background", {})
+            cfg.setdefault("plugins", {})
+            cfg["plugins"].setdefault("enabled", {})
 
             cfg["voice"]["voice_id"] = state["voice_id"]
             cfg["voice"]["enabled"] = state["comment_actions"]
@@ -359,6 +445,11 @@ class AssistantWidget(QWidget):
 
             cfg["background"]["hotkey"] = state["hotkey"]
 
+            # Сохраняем новый основной формат включения плагинов.
+            # Неизвестные plugin_id не удаляем, чтобы позже можно было добавить внешние плагины.
+            for plugin_id, enabled in state["plugins_enabled"].items():
+                cfg["plugins"]["enabled"][plugin_id] = bool(enabled)
+
         settings_service.update(mutator)
 
         self.config = settings_service.get_all()
@@ -366,4 +457,4 @@ class AssistantWidget(QWidget):
         self._dirty = False
         self._set_save_buttons_enabled(False)
 
-        self.save_bar.show_saved("Сохранено!")
+        self.save_bar.show_saved("Успешно настроено")
