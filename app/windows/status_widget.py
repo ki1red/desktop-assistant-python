@@ -1,3 +1,5 @@
+import time
+
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QWidget,
@@ -18,6 +20,7 @@ from app.settings_service import settings_service
 from app.speech.recorder import list_input_devices
 from app.windows.ui_kit import make_page_title, make_status_badge, apply_status_style
 from app.indexing.indexer import get_index_count
+from app.indexing.db import get_index_metadata
 
 
 SUPPORTED_RUNTIME_AI_PROVIDERS = {"stub", "ollama"}
@@ -82,6 +85,7 @@ class StatusWidget(QWidget):
         self.notifier = AssistantNotifier()
         self._cached_index_count = 0
         self._index_count_tick = 0
+        self._last_recovery_attempt = 0.0
         self._build_ui()
         self._start_timer()
 
@@ -100,6 +104,26 @@ class StatusWidget(QWidget):
 
         return self._cached_index_count
 
+    def _maybe_recover_missing_index(self, index_count: int, index_running: bool, index_status: str):
+        if index_running:
+            return
+
+        if index_count > 0:
+            return
+
+        now = time.monotonic()
+        if now - self._last_recovery_attempt < 10:
+            return
+
+        self._last_recovery_attempt = now
+
+        try:
+            from app.bootstrap import ensure_initial_index
+
+            ensure_initial_index(reason="status_widget_recovery")
+        except Exception:
+            pass
+
     def _build_ui(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(48, 34, 48, 34)
@@ -114,13 +138,18 @@ class StatusWidget(QWidget):
         self.overall_status = make_status_badge()
 
         header.addWidget(self.title_label, 0, 1)
-        header.addWidget(self.overall_status, 0, 2, alignment=Qt.AlignRight | Qt.AlignVCenter)
+        header.addWidget(
+            self.overall_status,
+            0,
+            2,
+            alignment=Qt.AlignRight | Qt.AlignVCenter,
+        )
 
         root.addLayout(header)
 
         self.command_row = StatusRow(
             "Обработка команд",
-            tooltip="Показывает, готов ли ассистент принимать голосовые команды по горячей клавише."
+            tooltip="Показывает, готов ли ассистент принимать голосовые команды."
         )
 
         self.mic_row = StatusRow(
@@ -138,6 +167,11 @@ class StatusWidget(QWidget):
             tooltip="ИИ помогает уточнять команды после распознавания речи, но ассистент может работать и без него."
         )
 
+        self.activation_row = StatusRow(
+            "Тип активации",
+            tooltip="Способ активации определяет, как ассистент начинает слушать команду: по горячей клавише или после голосового обращения. Настраивается во вкладке «Ассистент»."
+        )
+
         self.index_row = StatusRow(
             "Индексация файлов",
             tooltip="Индекс нужен, чтобы ассистент быстро находил приложения, файлы и папки на компьютере."
@@ -152,6 +186,7 @@ class StatusWidget(QWidget):
         rows_layout.addWidget(self.mic_row, 1, 0)
         rows_layout.addWidget(self.mode_row, 2, 0)
         rows_layout.addWidget(self.ai_row, 3, 0)
+        rows_layout.addWidget(self.activation_row, 4, 0)
 
         root.addLayout(rows_layout)
         root.addStretch(1)
@@ -192,7 +227,6 @@ class StatusWidget(QWidget):
         self.test_voice_btn.clicked.connect(self.test_voice)
         self.refresh_btn.clicked.connect(self.refresh)
 
-        # Пока скрыты, но оставлены в коде для диагностики.
         self.test_voice_btn.setVisible(False)
         self.refresh_btn.setVisible(False)
 
@@ -325,7 +359,27 @@ class StatusWidget(QWidget):
             "ИИ сейчас недоступен по неизвестной причине."
         )
 
-    def _compute_overall_status(self, index_running: bool, mic_ok: bool) -> tuple[str, str, str]:
+    def _get_activation_state(self) -> tuple[str, str]:
+        cfg = settings_service.get_all()
+        assistant = cfg.get("assistant", {})
+        background = cfg.get("background", {})
+
+        activation_mode = assistant.get("activation_mode", "hotkey")
+        wake_phrase = assistant.get("voice_activation_phrase", "ассистент")
+        hotkey = background.get("hotkey", self.bg_service.hotkey)
+
+        if activation_mode == "voice":
+            return (
+                "по голосу",
+                f"Ассистент реагирует на голосовое обращение «{wake_phrase}». Настраивается во вкладке «Ассистент». Горячая клавиша остаётся запасным способом запуска."
+            )
+
+        return (
+            "по нажатию",
+            f"Ассистент начинает слушать команду после нажатия горячей клавиши: {hotkey}. Настраивается во вкладке «Ассистент»."
+        )
+
+    def _compute_overall_status(self, index_running: bool, index_available: bool, mic_ok: bool) -> tuple[str, str, str]:
         if index_running:
             return (
                 "Настраивается",
@@ -333,11 +387,18 @@ class StatusWidget(QWidget):
                 "Ассистент запускается нормально, но сейчас выполняется индексация файлов."
             )
 
+        if not index_available:
+            return (
+                "Настраивается",
+                "process",
+                "Индекс файлов отсутствует или повреждён. Ассистент пытается восстановить его в фоне."
+            )
+
         if self.bg_service.is_paused:
             return (
                 "На паузе",
                 "bad",
-                "Ассистент поставлен на паузу. Команды по горячей клавише временно не выполняются."
+                "Ассистент поставлен на паузу. Команды временно не выполняются."
             )
 
         if not mic_ok:
@@ -356,20 +417,30 @@ class StatusWidget(QWidget):
     def refresh(self):
         index = index_state.snapshot()
         index_running = bool(index.get("is_running", False))
-        index = index_state.snapshot()
-        index_running = bool(index.get("is_running", False))
+        index_status = index.get("status", "")
         index_message = index.get("message", "")
+        index_last_error = index.get("last_error", "")
 
         if index_running:
-            index_count = index.get("indexed_count", 0)
+            index_count = int(index.get("indexed_count", 0))
         else:
             index_count = self._get_persistent_index_count()
-        index_message = index.get("message", "")
+
+        persistent_status = get_index_metadata("index_status", "")
+        index_available = index_count > 0 and persistent_status in ("", "ready")
+
+        if not index_available and not index_running:
+            self._maybe_recover_missing_index(index_count, index_running, index_status)
 
         mic_value, mic_tooltip, mic_ok = self._get_mic_state()
         ai_value, ai_tooltip = self._get_ai_state()
+        activation_value, activation_tooltip = self._get_activation_state()
 
-        overall_text, overall_kind, overall_tip = self._compute_overall_status(index_running, mic_ok)
+        overall_text, overall_kind, overall_tip = self._compute_overall_status(
+            index_running=index_running,
+            index_available=index_available,
+            mic_ok=mic_ok,
+        )
         self.overall_status.setText(overall_text)
         self.overall_status.setToolTip(overall_tip)
         apply_status_style(self.overall_status, overall_kind)
@@ -399,12 +470,33 @@ class StatusWidget(QWidget):
         self.ai_row.set_value(ai_value)
         self.ai_row.set_tooltip(ai_tooltip)
 
+        self.activation_row.set_value(activation_value)
+        self.activation_row.set_tooltip(activation_tooltip)
+
         if index_running:
             index_value = "выполняется"
-            index_tip = f"Сейчас выполняется индексация файлов. {index_message}"
+            index_tip = (
+                f"Сейчас выполняется индексация файлов. "
+                f"Уже обработано объектов: {index_count}. {index_message}"
+            )
+        elif persistent_status == "failed":
+            index_value = "ошибка"
+            index_tip = (
+                f"Последняя индексация завершилась ошибкой: {index_last_error or index_message}. "
+                f"Объектов в индексе сейчас: {index_count}."
+            )
+        elif index_count <= 0:
+            index_value = "отсутствует"
+            index_tip = (
+                "Индекс файлов отсутствует или база была удалена. "
+                "Ассистент запустит восстановление индекса в фоне."
+            )
         else:
             index_value = "выполнено"
-            index_tip = f"Индекс готов. Объектов в индексе: {index_count}. Индекс нужен для быстрого поиска файлов, папок и приложений."
+            index_tip = (
+                f"Индекс готов. Объектов в индексе: {index_count}. "
+                "Индекс нужен для быстрого поиска файлов, папок и приложений."
+            )
 
         self.index_row.set_value(index_value)
         self.index_row.set_tooltip(index_tip)

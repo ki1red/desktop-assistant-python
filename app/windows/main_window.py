@@ -1,4 +1,13 @@
-from PySide6.QtWidgets import QMainWindow, QTabWidget, QApplication, QProxyStyle, QStyle
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QTabWidget,
+    QApplication,
+    QProxyStyle,
+    QStyle,
+    QScrollArea,
+    QFrame,
+)
 
 from app.windows.logs_widget import LogsWidget
 from app.windows.providers_widget import ProvidersWidget
@@ -52,6 +61,7 @@ class AssistantMainWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self._on_tab_changed)
+
         self._previous_tab_index = -1
         self._tab_indexes = {}
 
@@ -75,6 +85,32 @@ class AssistantMainWindow(QMainWindow):
 
         logger.info("UI | MainWindow | init_done")
 
+    def _wrap_scrollable(self, widget):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setWidget(widget)
+
+        scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background: transparent;
+            }
+
+            QScrollArea > QWidget > QWidget {
+                background: transparent;
+            }
+        """)
+
+        return scroll
+
+    def _unwrap_tab_widget(self, widget):
+        if isinstance(widget, QScrollArea):
+            return widget.widget()
+        return widget
+
     def _install_tooltip_style(self):
         app = QApplication.instance()
         if app is None:
@@ -97,7 +133,7 @@ class AssistantMainWindow(QMainWindow):
                 background: #ffffff;
                 border-radius: 10px;
             }
-            
+
             QTabWidget::tab-bar {
                 alignment: center;
             }
@@ -170,8 +206,15 @@ class AssistantMainWindow(QMainWindow):
 
         try:
             widget = factory()
-            index = self.tabs.addTab(widget, title)
+
+            if title == "Логи":
+                page = widget
+            else:
+                page = self._wrap_scrollable(widget)
+
+            index = self.tabs.addTab(page, title)
             self._tab_indexes[title] = index
+
             logger.info("UI | MainWindow | create_tab_done | %s", title)
         except Exception as e:
             logger.exception("UI | MainWindow | create_tab_failed | %s | %s", title, e)
@@ -195,7 +238,8 @@ class AssistantMainWindow(QMainWindow):
 
     def _on_tab_changed(self, index: int):
         if self._previous_tab_index >= 0 and self._previous_tab_index != index:
-            previous_widget = self.tabs.widget(self._previous_tab_index)
+            previous_page = self.tabs.widget(self._previous_tab_index)
+            previous_widget = self._unwrap_tab_widget(previous_page)
             previous_title = self.tabs.tabText(self._previous_tab_index)
 
             if previous_widget and hasattr(previous_widget, "on_tab_deactivated"):
@@ -212,12 +256,18 @@ class AssistantMainWindow(QMainWindow):
         title = self.tabs.tabText(index) if index >= 0 else ""
         logger.info("UI | MainWindow | switch_tab | %s", title)
 
-        widget = self.tabs.widget(index)
+        page = self.tabs.widget(index)
+        widget = self._unwrap_tab_widget(page)
+
         if widget and hasattr(widget, "on_tab_activated"):
             try:
                 widget.on_tab_activated()
             except Exception as e:
-                logger.exception("UI | MainWindow | tab activation failed | %s | %s", title, e)
+                logger.exception(
+                    "UI | MainWindow | tab activation failed | %s | %s",
+                    title,
+                    e,
+                )
 
         self._previous_tab_index = index
 

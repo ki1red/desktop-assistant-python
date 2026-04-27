@@ -124,7 +124,172 @@ class BackgroundAssistantService:
         self._cleanup_dead_thread()
         return self._worker_thread is not None and self._worker_thread.is_alive()
 
-    def _request_activation(self, source: str):
+    def _normalize_ai_intent_hint(self, value: str | None) -> str | None:
+        if not value:
+            return None
+
+        v = str(value).strip().lower()
+
+        allowed = {
+            "enable_chat_mode",
+            "disable_chat_mode",
+            "enable_dictation",
+            "disable_dictation",
+            "open_file",
+            "open_folder",
+            "generic_open",
+            "search_web",
+            "search_youtube",
+            "play_music_query",
+            "select_candidate",
+            "unknown",
+        }
+
+        return v if v in allowed else None
+
+    def _run_recognized_text_directly(self, pipeline, recognized_text: str):
+        """
+        Выполняет уже распознанный текст без повторной записи аудио.
+
+        Нужно для сценария:
+        "ассистент открой стим"
+
+        Иначе ассистент услышит wake-фразу, потом начнёт новую запись,
+        а команда уже может быть произнесена и потеряна.
+        """
+        from app.dictation.state import dictation_state
+        from app.chat.state import chat_state
+        from app.nlu.text_cleanup import cleanup_command_text
+        from app.nlu.resources_loader import nlu_resources
+
+        text = (recognized_text or "").strip()
+        if not text:
+            return None
+
+        print(f"[STT_WAKE_COMMAND] {text}")
+        logger.info("Wake-команда после обращения: %s", text)
+
+        if dictation_state.is_enabled():
+            return pipeline._handle_dictation(text)
+
+        if chat_state.is_enabled():
+            return pipeline._handle_chat_mode(text)
+
+        cleaned_text = cleanup_command_text(text)
+        logger.info("Wake-команда после базовой очистки: %s", cleaned_text)
+
+        final_text = cleaned_text
+        ai_intent_hint = None
+        target_hint = None
+        entity_type_hint = None
+
+        ai_cfg = settings_service.get_section("ai", {})
+        logger.info(
+            "AI flags для wake-команды: enabled=%s apply_to_all_commands=%s provider=%s",
+            ai_cfg.get("enabled", False),
+            ai_cfg.get("apply_to_all_commands", False),
+            ai_cfg.get("provider", "unknown"),
+        )
+
+        if ai_cfg.get("enabled", False) and ai_cfg.get("apply_to_all_commands", False):
+            logger.info("Запуск AI refine для wake-команды.")
+
+            ai_result = pipeline.ai_gateway.refine_command_text(
+                cleaned_text,
+                rules={
+                    "polite_words": nlu_resources.polite_words,
+                    "filler_words": nlu_resources.filler_words,
+                    "command_verbs": nlu_resources.command_verbs,
+                    "extension_aliases": nlu_resources.extension_aliases,
+                }
+            )
+
+            logger.info("AI refine wake-command result: %s", ai_result)
+
+            if ai_result:
+                if ai_result.get("normalized_text"):
+                    final_text = ai_result["normalized_text"].strip()
+
+                ai_intent_hint = self._normalize_ai_intent_hint(ai_result.get("intent_hint"))
+                target_hint = ai_result.get("target_hint")
+                entity_type_hint = ai_result.get("entity_type_hint")
+
+                logger.info(
+                    "Wake-команда после AI refine: %s | raw_intent_hint=%s | normalized_intent_hint=%s | target_hint=%s | entity_type_hint=%s | confidence=%s",
+                    final_text,
+                    ai_result.get("intent_hint"),
+                    ai_intent_hint,
+                    target_hint,
+                    entity_type_hint,
+                    ai_result.get("confidence"),
+                )
+
+        command = pipeline.parser.parse(final_text)
+        parser_intent = command.intent
+
+        logger.info("Wake parser returned intent=%s target=%s", command.intent, command.target_text)
+
+        special_parser_intents = {
+            "enable_chat_mode",
+            "disable_chat_mode",
+            "enable_dictation",
+            "disable_dictation",
+            "select_candidate",
+            "confirm_deep_search",
+            "reject_deep_search",
+            "custom_command",
+            "negative_feedback",
+        }
+
+        target_override_allowed_intents = {
+            "generic_open",
+            "open_file",
+            "open_folder",
+            "search_web",
+            "search_youtube",
+            "play_music_query",
+        }
+
+        if parser_intent in special_parser_intents:
+            logger.info("AI override пропущен для wake-команды: parser уже распознал special intent=%s", parser_intent)
+        else:
+            if ai_intent_hint:
+                logger.info("Применяю AI intent_hint=%s вместо parser intent=%s", ai_intent_hint, parser_intent)
+                command.intent = ai_intent_hint
+
+            if target_hint and command.intent in target_override_allowed_intents:
+                logger.info("Применяю AI target_hint=%s", target_hint)
+                command.target_text = str(target_hint).strip()
+
+        logger.info("WAKE PARSED intent=%s target=%s", command.intent, command.target_text)
+        print(f"[PARSED] intent={command.intent}, target={command.target_text}")
+
+        if runtime_control.is_cancelled():
+            logger.info("Wake-команда отменена пользователем после parse.")
+            self.notifier.say("Операция отменена.")
+            return None
+
+        if command.intent == "select_candidate":
+            try:
+                return pipeline._handle_selection(int(command.target_text))
+            except Exception:
+                self.notifier.say("Не удалось выбрать вариант.")
+                return None
+
+        if command.intent == "confirm_deep_search":
+            pending = session_state.pending_deep_search_command
+            if pending is None:
+                logger.info("Нет запроса на глубокий поиск.")
+                self.notifier.say("Нет запроса на глубокий поиск.")
+                return None
+            return pipeline._handle_command(pending, deep_search=True)
+
+        if command.intent == "reject_deep_search":
+            return pipeline._handle_command(command, deep_search=False)
+
+        return pipeline._handle_command(command, deep_search=False)
+
+    def _request_activation(self, source: str, initial_text: str | None = None):
         if self.is_paused:
             logger.info("Команда проигнорирована: ассистент на паузе. source=%s", source)
             self.notifier.say("Ассистент на паузе.")
@@ -158,8 +323,8 @@ class BackgroundAssistantService:
             runtime_control.start_job()
             try:
                 if source == "voice":
-                    logger.info("Голосовая активация сработала. Слушаю команду...")
-                    print("[BG] Голосовая активация сработала. Слушаю команду...")
+                    logger.info("Голосовая активация сработала. initial_text=%r", initial_text)
+                    print("[BG] Голосовая активация сработала.")
                 else:
                     logger.info("Горячая клавиша нажата. Слушаю команду...")
                     print("[BG] Горячая клавиша нажата. Слушаю команду...")
@@ -167,7 +332,11 @@ class BackgroundAssistantService:
                 self._beep()
 
                 pipeline = self._get_pipeline()
-                pipeline.run_once()
+
+                if initial_text:
+                    self._run_recognized_text_directly(pipeline, initial_text)
+                else:
+                    pipeline.run_once()
 
             except Exception as e:
                 logger.exception("Ошибка во время выполнения команды: %s", e)
@@ -185,14 +354,25 @@ class BackgroundAssistantService:
         # даже если в настройках выбран режим "По голосу".
         self._request_activation(source="hotkey")
 
-    def _wake_phrase_matches(self, text: str) -> bool:
+    def _extract_command_after_wake(self, text: str) -> str | None:
         phrase = _normalize_wake_text(self.voice_activation_phrase)
         recognized = _normalize_wake_text(text)
 
         if not phrase or not recognized:
-            return False
+            return None
 
-        return phrase in recognized
+        if phrase not in recognized:
+            return None
+
+        after = recognized.split(phrase, 1)[1].strip()
+
+        if not after:
+            return ""
+
+        return after
+
+    def _wake_phrase_matches(self, text: str) -> bool:
+        return self._extract_command_after_wake(text) is not None
 
     def _wake_worker(self, stop_event: threading.Event):
         logger.info(
@@ -223,13 +403,21 @@ class BackgroundAssistantService:
 
                     logger.debug("Wake STT: %r", stt_result.text)
 
-                    if self._wake_phrase_matches(stt_result.text):
-                        logger.info("Wake-фраза распознана: %r", stt_result.text)
+                    command_after_wake = self._extract_command_after_wake(stt_result.text)
+
+                    if command_after_wake is not None:
+                        logger.info(
+                            "Wake-фраза распознана: text=%r command_after_wake=%r",
+                            stt_result.text,
+                            command_after_wake,
+                        )
                         print(f"[BG] Wake-фраза распознана: {stt_result.text}")
 
-                        self._request_activation(source="voice")
+                        if command_after_wake:
+                            self._request_activation(source="voice", initial_text=command_after_wake)
+                        else:
+                            self._request_activation(source="voice")
 
-                        # Даём основной команде стартовать и не слушаем wake-фразу сразу повторно.
                         stop_event.wait(1.0)
 
                 except NoSpeechDetected:

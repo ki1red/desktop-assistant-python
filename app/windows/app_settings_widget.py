@@ -1,33 +1,65 @@
+import os
+import sys
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QLabel,
     QGridLayout,
-    QFormLayout,
+    QFrame,
+    QLabel,
     QCheckBox,
+    QFormLayout,
 )
 
 from app.settings_service import settings_service
+from app.logger import get_logger
+from app.windows.ui_kit import make_page_title
 from app.windows.floating_save_bar import FloatingSaveBar
-from app.windows.startup_manager import is_startup_enabled, set_startup_enabled
-from app.windows.ui_kit import make_page_title, InfoCard
+
+
+logger = get_logger("app_settings_widget")
+
+
+RUN_KEY_NAME = "LocalAssistant"
+
+
+class InfoCard(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setObjectName("InfoCard")
+        self.setStyleSheet("""
+            QFrame#InfoCard {
+                background: #ffffff;
+                border: 1px solid #dde2ea;
+                border-radius: 14px;
+            }
+        """)
+
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(24, 20, 24, 20)
+        self.layout.setSpacing(16)
 
 
 class AppSettingsWidget(QWidget):
     def __init__(self):
         super().__init__()
 
+        logger.info("AppSettingsWidget | init_start")
+
         self.config = settings_service.get_all()
         settings_service.subscribe(self._on_settings_changed)
 
-        self._loading = False
+        self._loading_controls = False
         self._dirty = False
         self._saved_form_state = {}
 
         self._build_ui()
-        self._connect_signals()
+        self._connect_change_signals()
         self._load_from_settings(reset_dirty=True)
+
+        logger.info("AppSettingsWidget | init_done")
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -47,46 +79,56 @@ class AppSettingsWidget(QWidget):
         card = InfoCard()
 
         description = QLabel(
-            "Здесь находятся общие настройки запуска, поведения окна и отображения технических разделов."
+            "Здесь находятся общие настройки запуска приложения и отображения служебных вкладок."
         )
         description.setWordWrap(True)
-        description.setStyleSheet("font-size: 18px; color: #303846;")
+        description.setStyleSheet("font-size: 18px; color: #4b5563;")
         card.layout.addWidget(description)
 
         form = QFormLayout()
         form.setLabelAlignment(Qt.AlignRight)
         form.setFormAlignment(Qt.AlignTop)
+        form.setHorizontalSpacing(18)
+        form.setVerticalSpacing(14)
 
-        self.run_with_system_checkbox = QCheckBox("Запускать вместе с системой")
-        self.run_with_system_checkbox.setToolTip(
-            "Если включено, Windows будет запускать LocalAssistant автоматически после входа в систему."
+        self.run_at_login_checkbox = QCheckBox("Запускать вместе с системой")
+        self.run_at_login_checkbox.setToolTip(
+            "Если включено, ассистент будет автоматически запускаться при входе в Windows."
         )
 
         self.hide_on_startup_checkbox = QCheckBox("Скрывать окно приложения при запуске")
         self.hide_on_startup_checkbox.setToolTip(
-            "Если включено, при запуске ассистент будет сразу работать в фоне, а окно не будет открываться."
+            "Если включено, при запуске будет открываться только значок в трее, "
+            "а основное окно не будет показываться сразу."
         )
 
-        self.system_tabs_checkbox = QCheckBox("Системные вкладки")
-        self.system_tabs_checkbox.setToolTip(
-            "Показывает дополнительные технические вкладки: быстрые цели, папки, провайдеры, историю и пользовательские команды."
+        self.show_system_tabs_checkbox = QCheckBox("Системные вкладки")
+        self.show_system_tabs_checkbox.setToolTip(
+            "Показывает дополнительные служебные вкладки: быстрые цели, папки, провайдеры, "
+            "историю и пользовательские команды."
         )
 
-        form.addRow("", self.run_with_system_checkbox)
+        form.addRow("", self.run_at_login_checkbox)
         form.addRow("", self.hide_on_startup_checkbox)
-        form.addRow("", self.system_tabs_checkbox)
+        form.addRow("", self.show_system_tabs_checkbox)
 
         card.layout.addLayout(form)
+
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet("font-size: 15px; color: #687386;")
+        card.layout.addWidget(self.status_label)
+
         root.addWidget(card)
         root.addStretch(1)
 
         self.save_bar = FloatingSaveBar(self, "Сохранить")
         self.save_bar.clicked.connect(self.save_settings)
 
-    def _connect_signals(self):
-        self.run_with_system_checkbox.stateChanged.connect(self._update_dirty)
-        self.hide_on_startup_checkbox.stateChanged.connect(self._update_dirty)
-        self.system_tabs_checkbox.stateChanged.connect(self._update_dirty)
+    def _connect_change_signals(self):
+        self.run_at_login_checkbox.stateChanged.connect(self._update_save_buttons)
+        self.hide_on_startup_checkbox.stateChanged.connect(self._update_save_buttons)
+        self.show_system_tabs_checkbox.stateChanged.connect(self._update_save_buttons)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -103,56 +145,112 @@ class AppSettingsWidget(QWidget):
 
     def _on_settings_changed(self, config_snapshot: dict):
         self.config = config_snapshot
+
         if not self._dirty:
             self._load_from_settings(reset_dirty=True)
 
     def _load_from_settings(self, reset_dirty: bool):
-        self._loading = True
+        self._loading_controls = True
 
         self.config = settings_service.get_all()
-        ui = self.config.get("ui", {})
+
         startup = self.config.get("startup", {})
+        ui = self.config.get("ui", {})
 
-        saved_startup_enabled = bool(startup.get("run_with_system", False))
-        real_startup_enabled = is_startup_enabled()
+        self.run_at_login_checkbox.setChecked(
+            bool(startup.get("run_at_login", False))
+        )
 
-        self.run_with_system_checkbox.setChecked(saved_startup_enabled or real_startup_enabled)
-        self.hide_on_startup_checkbox.setChecked(bool(ui.get("hide_window_on_startup", False)))
-        self.system_tabs_checkbox.setChecked(bool(ui.get("show_system_tabs", False)))
+        self.hide_on_startup_checkbox.setChecked(
+            bool(startup.get("hide_window_on_startup", False))
+        )
 
-        self._loading = False
+        self.show_system_tabs_checkbox.setChecked(
+            bool(ui.get("show_system_tabs", False))
+        )
+
+        self._loading_controls = False
 
         if reset_dirty:
             self._saved_form_state = self._capture_form_state()
             self._dirty = False
 
-        self.save_bar.set_dirty(self._dirty)
+        self._set_save_buttons_enabled(self._dirty)
 
     def _capture_form_state(self) -> dict:
         return {
-            "run_with_system": self.run_with_system_checkbox.isChecked(),
+            "run_at_login": self.run_at_login_checkbox.isChecked(),
             "hide_window_on_startup": self.hide_on_startup_checkbox.isChecked(),
-            "show_system_tabs": self.system_tabs_checkbox.isChecked(),
+            "show_system_tabs": self.show_system_tabs_checkbox.isChecked(),
         }
 
-    def _update_dirty(self):
-        if self._loading:
+    def _set_save_buttons_enabled(self, enabled: bool):
+        self.save_bar.set_dirty(enabled)
+
+    def _update_save_buttons(self):
+        if self._loading_controls:
             return
 
         self._dirty = self._capture_form_state() != self._saved_form_state
-        self.save_bar.set_dirty(self._dirty)
+        self._set_save_buttons_enabled(self._dirty)
+
+    def _get_startup_command(self) -> str:
+        if getattr(sys, "frozen", False):
+            return f'"{sys.executable}"'
+
+        project_root = Path(__file__).resolve().parents[2]
+        assistant_app = project_root / "assistant_app.py"
+
+        return f'"{sys.executable}" "{assistant_app}"'
+
+    def _apply_windows_autostart(self, enabled: bool) -> tuple[bool, str]:
+        if os.name != "nt":
+            return False, "Автозапуск через реестр поддерживается только на Windows."
+
+        try:
+            import winreg
+
+            key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                key_path,
+                0,
+                winreg.KEY_SET_VALUE,
+            ) as key:
+                if enabled:
+                    winreg.SetValueEx(
+                        key,
+                        RUN_KEY_NAME,
+                        0,
+                        winreg.REG_SZ,
+                        self._get_startup_command(),
+                    )
+                else:
+                    try:
+                        winreg.DeleteValue(key, RUN_KEY_NAME)
+                    except FileNotFoundError:
+                        pass
+
+            return True, ""
+
+        except Exception as e:
+            logger.exception("Не удалось изменить автозапуск: %s", e)
+            return False, str(e)
 
     def save_settings(self):
         state = self._capture_form_state()
 
-        set_startup_enabled(state["run_with_system"])
+        autostart_ok, autostart_error = self._apply_windows_autostart(
+            state["run_at_login"]
+        )
 
         def mutator(cfg: dict):
             cfg.setdefault("startup", {})
             cfg.setdefault("ui", {})
 
-            cfg["startup"]["run_with_system"] = state["run_with_system"]
-            cfg["ui"]["hide_window_on_startup"] = state["hide_window_on_startup"]
+            cfg["startup"]["run_at_login"] = state["run_at_login"]
+            cfg["startup"]["hide_window_on_startup"] = state["hide_window_on_startup"]
             cfg["ui"]["show_system_tabs"] = state["show_system_tabs"]
 
         settings_service.update(mutator)
@@ -160,5 +258,13 @@ class AppSettingsWidget(QWidget):
         self.config = settings_service.get_all()
         self._saved_form_state = self._capture_form_state()
         self._dirty = False
+        self._set_save_buttons_enabled(False)
 
-        self.save_bar.show_saved("Сохранено!")
+        if state["run_at_login"] and not autostart_ok:
+            self.status_label.setText(
+                f"Настройки сохранены, но автозапуск не удалось включить: {autostart_error}"
+            )
+            self.save_bar.show_saved("Сохранено!")
+        else:
+            self.status_label.setText("")
+            self.save_bar.show_saved("Сохранено!")

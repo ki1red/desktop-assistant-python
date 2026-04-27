@@ -2,20 +2,37 @@ import sqlite3
 from app.config import DB_PATH
 
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+def get_connection(enable_cancel_progress: bool = False):
+    """
+    Возвращает соединение с SQLite.
+
+    ВАЖНО:
+    enable_cancel_progress=False по умолчанию.
+    Нельзя глобально вешать runtime_control на все SQLite-запросы,
+    иначе отмена голосовой команды может прервать индексацию,
+    запись истории, настройки и другие фоновые операции.
+
+    enable_cancel_progress=True нужно использовать только в тех местах,
+    где долгий поиск действительно должен отменяться пользователем.
+    """
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
 
     try:
-        from app.runtime_control import runtime_control
-
-        def _progress_handler():
-            return 1 if runtime_control.is_cancelled() else 0
-
-        # Проверка отмены каждые N шагов SQLite VM
-        conn.set_progress_handler(_progress_handler, 2000)
+        conn.execute("PRAGMA busy_timeout = 30000")
     except Exception:
         pass
+
+    if enable_cancel_progress:
+        try:
+            from app.runtime_control import runtime_control
+
+            def _progress_handler():
+                return 1 if runtime_control.is_cancelled() else 0
+
+            conn.set_progress_handler(_progress_handler, 2000)
+        except Exception:
+            pass
 
     return conn
 
@@ -30,6 +47,59 @@ def _add_column_if_missing(cur, table_name: str, column_name: str, column_sql: s
     columns = _get_table_columns(cur, table_name)
     if column_name not in columns:
         cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_sql}")
+
+
+def _ensure_index_metadata_table(cur):
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS index_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    )
+    """)
+
+
+def get_index_metadata(key: str, default: str = "") -> str:
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        _ensure_index_metadata_table(cur)
+        cur.execute("SELECT value FROM index_metadata WHERE key = ?", (key,))
+        row = cur.fetchone()
+        conn.close()
+        if row is None:
+            return default
+        return str(row["value"])
+    except Exception:
+        return default
+
+
+def set_index_metadata(key: str, value: str):
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_index_metadata_table(cur)
+    cur.execute("""
+    INSERT INTO index_metadata (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    """, (key, str(value)))
+    conn.commit()
+    conn.close()
+
+
+def set_index_metadata_many(values: dict):
+    conn = get_connection()
+    cur = conn.cursor()
+    _ensure_index_metadata_table(cur)
+
+    rows = [(str(k), str(v)) for k, v in values.items()]
+    cur.executemany("""
+    INSERT INTO index_metadata (key, value)
+    VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    """, rows)
+
+    conn.commit()
+    conn.close()
 
 
 def init_db():
@@ -129,6 +199,8 @@ def init_db():
     )
     """)
 
+    _ensure_index_metadata_table(cur)
+
     _add_column_if_missing(cur, "filesystem_index", "search_blob", "search_blob TEXT")
     _add_column_if_missing(cur, "usage_history", "target_type", "target_type TEXT")
     _add_column_if_missing(cur, "usage_stats", "target_type", "target_type TEXT")
@@ -145,7 +217,6 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_custom_phrase ON custom_commands(phrase)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_alias_alias ON user_aliases(alias)")
 
-    # Базовые provider routes
     default_routes = [
         ("browser_google", "web_search", "Google Search", "https://www.google.com/search?q={query}", 1),
         ("youtube_search", "youtube_search", "YouTube Search", "https://www.youtube.com/results?search_query={query}", 1),
@@ -159,7 +230,6 @@ def init_db():
     VALUES (?, ?, ?, ?, ?)
     """, default_routes)
 
-    # Базовые user settings
     default_settings = [
         ("default_music_provider", "yandex_music"),
         ("default_web_search_provider", "browser_google"),
