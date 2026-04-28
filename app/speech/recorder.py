@@ -23,15 +23,52 @@ class NoMicrophoneSignalError(RuntimeError):
 
 
 MIC_INCLUDE_KEYWORDS = [
-    "microphone", "mic", "микрофон", "гарнитура", "headset",
-    "webcam", "камера", "array", "usb", "input", "fifine",
-    "realtek", "audio"
+    "microphone",
+    "microph",
+    "mic",
+    "микрофон",
+    "гарнитура",
+    "headset",
+    "webcam",
+    "камера",
+    "array",
+    "массив",
+    "fifine",
+    "maono",
+    "yeti",
+    "rode",
+    "hyperx",
+    "razer seiren",
+    "logitech",
+    "blue snowball",
 ]
 
 MIC_EXCLUDE_KEYWORDS = [
-    "stereo mix", "what u hear", "wave out", "loopback",
-    "virtual", "cable output", "output", "speaker",
-    "динамик", "колонки", "monitor"
+    "stereo mix",
+    "what u hear",
+    "wave out",
+    "loopback",
+    "virtual",
+    "cable output",
+    "cable input",
+    "output",
+    "speaker",
+    "speakers",
+    "динамик",
+    "динамики",
+    "колонки",
+    "monitor",
+    "наушники",
+    "headphones",
+    "headphone",
+    "hdmi",
+    "display audio",
+    "nvidia",
+    "amd high definition",
+    "realtek digital output",
+    "primary sound capture driver",
+    "sound mapper",
+    "mapper",
 ]
 
 OUTPUT_INCLUDE_KEYWORDS = [
@@ -89,6 +126,8 @@ def refresh_audio_devices(force: bool = False, min_interval_sec: float = 5.0) ->
 
 def _normalize_device_name(device_name: str) -> str:
     value = (device_name or "").lower().replace("ё", "е")
+    for ch in ["(", ")", "[", "]", "{", "}", ",", ";", ":"]:
+        value = value.replace(ch, " ")
     value = " ".join(value.split())
     return value
 
@@ -112,7 +151,23 @@ def _device_name_matches(selected_name: str, real_name: str) -> bool:
 
 
 def _looks_like_microphone(device_name: str) -> bool:
-    name = (device_name or "").lower()
+    """
+    Фильтрует устройства ввода для UI.
+
+    В список микрофонов не должны попадать:
+    - Stereo Mix;
+    - loopback/virtual cable;
+    - динамики/HDMI/monitor audio;
+    - слишком общие Realtek/Audio/Input без признаков микрофона.
+
+    Важно:
+    не используем слишком широкие слова вроде "audio", "input", "realtek",
+    потому что они добавляют в список лишние устройства.
+    """
+    name = _normalize_device_name(device_name)
+
+    if not name:
+        return False
 
     if any(bad in name for bad in MIC_EXCLUDE_KEYWORDS):
         return False
@@ -120,6 +175,11 @@ def _looks_like_microphone(device_name: str) -> bool:
     if any(good in name for good in MIC_INCLUDE_KEYWORDS):
         return True
 
+    # Частый вариант Windows: "Microphone Array ..."
+    if "микрофонный массив" in name:
+        return True
+
+    # Не пропускаем просто "usb audio", "realtek audio", "input device".
     return False
 
 
@@ -134,6 +194,30 @@ def _looks_like_output_device(device_name: str) -> bool:
 
     return True
 
+def _deduplicate_audio_devices(devices: list[dict]) -> list[dict]:
+    """
+    Убирает дубликаты устройств по нормализованному имени.
+
+    На Windows одно и то же устройство может показываться через разные host API.
+    Для пользователя это выглядит как мусор в списке.
+    """
+    result = []
+    seen = set()
+
+    for dev in devices:
+        name = dev.get("name", "")
+        key = _normalize_device_name(name)
+
+        if not key:
+            continue
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        result.append(dev)
+
+    return result
 
 def _query_devices_safe(refresh: bool = False):
     if refresh:
@@ -156,7 +240,7 @@ def list_input_devices(refresh: bool = False) -> list[dict]:
         if dev.get("max_input_channels", 0) <= 0:
             continue
 
-        name = dev["name"]
+        name = dev.get("name", "")
         if not _looks_like_microphone(name):
             continue
 
@@ -167,7 +251,7 @@ def list_input_devices(refresh: bool = False) -> list[dict]:
             "default_samplerate": dev.get("default_samplerate", 16000),
         })
 
-    return result
+    return _deduplicate_audio_devices(result)
 
 
 def list_output_devices(refresh: bool = False) -> list[dict]:
