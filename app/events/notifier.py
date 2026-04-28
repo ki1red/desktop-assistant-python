@@ -27,3 +27,16 @@ class AssistantNotifier:
     def say_sync(self, text: str):
         logger.info("[VOICE_SYNC] %s", text)
         speaker.say_sync(text)
+
+    def stop_speaking(self):
+        """
+        Мгновенно останавливает текущую озвучку ассистента.
+        """
+        logger.info("[VOICE] stop requested")
+        speaker.stop(clear_queue=True)
+
+    def is_speaking(self) -> bool:
+        """
+        Проверяет, говорит ли ассистент сейчас.
+        """
+        return speaker.is_speaking()

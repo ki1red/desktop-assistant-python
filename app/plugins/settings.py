@@ -1,17 +1,9 @@
 from app.settings_service import settings_service
 from app.logger import get_logger
+from app.plugins.defaults import DEFAULT_PLUGIN_ENABLED
 
 
 logger = get_logger("plugin_settings")
-
-
-DEFAULT_PLUGIN_ENABLED = {
-    "filesystem": True,
-    "web": True,
-    "music": True,
-    "dictation": True,
-    "chat": True,
-}
 
 
 def get_plugin_enabled_map() -> dict[str, bool]:
@@ -30,7 +22,7 @@ def get_plugin_enabled_map() -> dict[str, bool]:
     }
 
     Старый формат assistant.enabled_plugins поддерживается как fallback.
-    Обычно до него дело не дойдёт, потому что ConfigLoader теперь сам
+    Обычно до него дело не дойдёт, потому что ConfigLoader сам
     нормализует настройки при загрузке и сохранении.
     """
     cfg = settings_service.get_all()
@@ -91,7 +83,6 @@ def set_plugin_enabled(plugin_id: str, enabled: bool):
         cfg.setdefault("plugins", {})
         cfg["plugins"].setdefault("enabled", {})
 
-        # Гарантируем наличие всех стандартных плагинов.
         current_map = dict(DEFAULT_PLUGIN_ENABLED)
 
         existing_map = cfg["plugins"].get("enabled", {})

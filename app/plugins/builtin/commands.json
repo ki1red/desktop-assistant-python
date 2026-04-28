@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "plugin_id": "chat",
+      "title": "Общение",
+      "description": "Режим разговора с ИИ.",
+      "default_enabled": true,
+      "commands": [
+        {
+          "command_id": "enable_chat_mode",
+          "intent": "enable_chat_mode",
+          "title": "Включить режим общения",
+          "exact_phrases": [
+            "ассистент",
+            "режим общения",
+            "включи режим общения",
+            "давай поговорим"
+          ],
+          "prefixes": [],
+          "keywords": [],
+          "target_fillers": [],
+          "requires_target": false,
+          "priority": 95
+        },
+        {
+          "command_id": "disable_chat_mode",
+          "intent": "disable_chat_mode",
+          "title": "Выключить режим общения",
+          "exact_phrases": [
+            "выключи режим общения",
+            "хватит общаться",
+            "режим общения выключить",
+            "заверши общение"
+          ],
+          "prefixes": [],
+          "keywords": [],
+          "target_fillers": [],
+          "requires_target": false,
+          "priority": 95
+        }
+      ]
+    },
+    {
+      "plugin_id": "dictation",
+      "title": "Диктовка",
+      "description": "Режим ввода речи как текста.",
+      "default_enabled": true,
+      "commands": [
+        {
+          "command_id": "enable_dictation",
+          "intent": "enable_dictation",
+          "title": "Включить диктовку",
+          "exact_phrases": [
+            "включи диктовку",
+            "включить диктовку",
+            "режим диктовки",
+            "начни диктовку",
+            "начать диктовку",
+            "включи режим диктовки",
+            "включить режим диктовки"
+          ],
+          "prefixes": [],
+          "keywords": [],
+          "target_fillers": [],
+          "requires_target": false,
+          "priority": 95
+        },
+        {
+          "command_id": "disable_dictation",
+          "intent": "disable_dictation",
+          "title": "Выключить диктовку",
+          "exact_phrases": [
+            "выключи диктовку",
+            "выключить диктовку",
+            "останови диктовку",
+            "остановить диктовку",
+            "заверши диктовку",
+            "закончить диктовку",
+            "выключи режим диктовки",
+            "выключить режим диктовки"
+          ],
+          "prefixes": [],
+          "keywords": [],
+          "target_fillers": [],
+          "requires_target": false,
+          "priority": 95
+        }
+      ]
+    },
+    {
+      "plugin_id": "music",
+      "title": "Музыка",
+      "description": "Поиск музыки через выбранный сервис.",
+      "default_enabled": true,
+      "commands": [
+        {
+          "command_id": "play_music_query",
+          "intent": "play_music_query",
+          "title": "Найти или включить музыку",
+          "exact_phrases": [],
+          "prefixes": [
+            "включи песню",
+            "включить песню",
+            "найди песню",
+            "найти песню",
+            "включи музыку",
+            "включить музыку",
+            "включи музыка",
+            "включить музыка",
+            "найди музыку",
+            "найти музыку",
+            "найди музыка",
+            "найти музыка",
+            "поставь музыку",
+            "поставь музыка",
+            "поставь песню",
+            "поставь трек",
+            "воспроизведи"
+          ],
+          "keywords": [
+            "музыка",
+            "музыку",
+            "музыки",
+            "песня",
+            "песню",
+            "песни",
+            "трек",
+            "треки"
+          ],
+          "target_fillers": [],
+          "requires_target": true,
+          "priority": 90
+        }
+      ]
+    },
+    {
+      "plugin_id": "web",
+      "title": "Веб",
+      "description": "Поиск в интернете и на YouTube.",
+      "default_enabled": true,
+      "commands": [
+        {
+          "command_id": "search_youtube",
+          "intent": "search_youtube",
+          "title": "Поиск на YouTube",
+          "exact_phrases": [],
+          "prefixes": [
+            "найди на ютубе",
+            "найди в ютубе",
+            "поиск на ютубе",
+            "открой на ютубе",
+            "поищи на ютубе",
+            "найди на youtube",
+            "поищи на youtube",
+            "включи видео",
+            "включить видео",
+            "найди видео",
+            "найти видео",
+            "открой видео",
+            "запусти видео"
+          ],
+          "keywords": [
+            "ютуб",
+            "youtube"
+          ],
+          "target_fillers": [],
+          "requires_target": true,
+          "priority": 88
+        },
+        {
+          "command_id": "search_web",
+          "intent": "search_web",
+          "title": "Поиск в интернете",
+          "exact_phrases": [],
+          "prefixes": [
+            "найди в браузере",
+            "поиск в браузере",
+            "найди в интернете",
+            "найти в интернете",
+            "найди в гугле",
+            "загугли",
+            "погугли",
+            "поищи в интернете",
+            "поищи в гугле"
+          ],
+          "keywords": [
+            "гугл",
+            "google",
+            "браузер",
+            "интернет"
+          ],
+          "target_fillers": [],
+          "requires_target": true,
+          "priority": 82
+        }
+      ]
+    },
+    {
+      "plugin_id": "filesystem",
+      "title": "Файловая система",
+      "description": "Открытие приложений, файлов и папок.",
+      "default_enabled": true,
+      "commands": [
+        {
+          "command_id": "open_file",
+          "intent": "open_file",
+          "title": "Открыть файл",
+          "exact_phrases": [],
+          "prefixes": [
+            "открой файл",
+            "открыть файл",
+            "открою файл",
+            "покажи файл",
+            "показать файл",
+            "найди файл",
+            "найти файл"
+          ],
+          "keywords": [],
+          "target_fillers": [],
+          "requires_target": true,
+          "priority": 90
+        },
+        {
+          "command_id": "open_folder",
+          "intent": "open_folder",
+          "title": "Открыть папку",
+          "exact_phrases": [],
+          "prefixes": [
+            "открой папку",
+            "открыть папку",
+            "открою папку",
+            "покажи папку",
+            "показать папку",
+            "найди папку",
+            "найти папку"
+          ],
+          "keywords": [],
+          "target_fillers": [],
+          "requires_target": true,
+          "priority": 90
+        },
+        {
+          "command_id": "open_anything",
+          "intent": "generic_open",
+          "title": "Открыть приложение, файл или папку",
+          "exact_phrases": [],
+          "prefixes": [
+            "открой",
+            "открыть",
+            "открою",
+            "запусти",
+            "запустить",
+            "запущу",
+            "покажи",
+            "показать"
+          ],
+          "keywords": [],
+          "target_fillers": [
+            "приложение",
+            "приложения",
+            "программа",
+            "программу",
+            "программы"
+          ],
+          "requires_target": true,
+          "priority": 65
+        }
+      ]
+    }
+  ]
+}

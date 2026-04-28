@@ -46,10 +46,12 @@ class BackgroundAssistantService:
         self.voice_activation_phrase = "ассистент"
         self.wake_record_seconds = 1.8
         self.wake_check_interval_sec = 0.35
+        self.wake_post_activation_cooldown_sec = 2.5
 
         self._wake_thread = None
         self._wake_stop_event = None
         self._wake_lock = threading.RLock()
+        self._wake_suppressed_until = 0.0
 
         self._apply_config(settings_service.get_all())
         settings_service.subscribe(self._on_settings_changed)
@@ -76,6 +78,7 @@ class BackgroundAssistantService:
         new_voice_phrase = assistant.get("voice_activation_phrase", "ассистент")
         new_wake_record_seconds = float(assistant.get("wake_record_seconds", 1.8))
         new_wake_check_interval_sec = float(assistant.get("wake_check_interval_sec", 0.35))
+        new_wake_cooldown = float(assistant.get("wake_post_activation_cooldown_sec", 2.5))
 
         hotkey_changed = new_hotkey != self.hotkey
         cancel_changed = new_cancel != self.cancel_on_second_press
@@ -88,6 +91,7 @@ class BackgroundAssistantService:
         self.voice_activation_phrase = (new_voice_phrase or "ассистент").strip()
         self.wake_record_seconds = max(0.8, min(new_wake_record_seconds, 4.0))
         self.wake_check_interval_sec = max(0.15, min(new_wake_check_interval_sec, 3.0))
+        self.wake_post_activation_cooldown_sec = max(0.5, min(new_wake_cooldown, 10.0))
 
         if self._running and (hotkey_changed or cancel_changed):
             logger.info(
@@ -116,6 +120,16 @@ class BackgroundAssistantService:
         except Exception:
             pass
 
+    def _suppress_wake_for(self, seconds: float):
+        """
+        На время отключает wake-listener.
+        """
+        until = time.time() + max(0.0, float(seconds))
+        self._wake_suppressed_until = max(self._wake_suppressed_until, until)
+
+    def _is_wake_suppressed(self) -> bool:
+        return time.time() < self._wake_suppressed_until
+
     def _cleanup_dead_thread(self):
         if self._worker_thread is not None and not self._worker_thread.is_alive():
             self._worker_thread = None
@@ -124,182 +138,42 @@ class BackgroundAssistantService:
         self._cleanup_dead_thread()
         return self._worker_thread is not None and self._worker_thread.is_alive()
 
-    def _normalize_ai_intent_hint(self, value: str | None) -> str | None:
-        if not value:
-            return None
-
-        v = str(value).strip().lower()
-
-        allowed = {
-            "enable_chat_mode",
-            "disable_chat_mode",
-            "enable_dictation",
-            "disable_dictation",
-            "open_file",
-            "open_folder",
-            "generic_open",
-            "search_web",
-            "search_youtube",
-            "play_music_query",
-            "select_candidate",
-            "unknown",
-        }
-
-        return v if v in allowed else None
-
-    def _run_recognized_text_directly(self, pipeline, recognized_text: str):
+    def _prepare_for_new_activation(self):
         """
-        Выполняет уже распознанный текст без повторной записи аудио.
+        Готовит ассистента к новой записи.
 
-        Нужно для сценария:
-        "ассистент открой стим"
-
-        Иначе ассистент услышит wake-фразу, потом начнёт новую запись,
-        а команда уже может быть произнесена и потеряна.
+        Главное: мгновенно останавливаем TTS, чтобы голос ассистента
+        не попадал в микрофон во время новой команды.
         """
-        from app.dictation.state import dictation_state
-        from app.chat.state import chat_state
-        from app.nlu.text_cleanup import cleanup_command_text
-        from app.nlu.resources_loader import nlu_resources
+        try:
+            self.notifier.stop_speaking()
+        except Exception as e:
+            logger.debug("Не удалось остановить озвучку перед активацией: %s", e)
 
-        text = (recognized_text or "").strip()
-        if not text:
-            return None
+        self._suppress_wake_for(0.8)
 
-        print(f"[STT_WAKE_COMMAND] {text}")
-        logger.info("Wake-команда после обращения: %s", text)
+    def _looks_like_incomplete_initial_command(self, text: str) -> bool:
+        """
+        Проверяет, не является ли initial_text префиксом команды без цели.
+        """
+        try:
+            from app.plugins.registry import PluginRegistry
 
-        if dictation_state.is_enabled():
-            return pipeline._handle_dictation(text)
+            registry = PluginRegistry()
+            return registry.is_incomplete_command_text(text)
+        except Exception as e:
+            logger.warning("Не удалось проверить incomplete initial command: %s", e)
+            return False
 
-        if chat_state.is_enabled():
-            return pipeline._handle_chat_mode(text)
-
-        cleaned_text = cleanup_command_text(text)
-        logger.info("Wake-команда после базовой очистки: %s", cleaned_text)
-
-        final_text = cleaned_text
-        ai_intent_hint = None
-        target_hint = None
-        entity_type_hint = None
-
-        ai_cfg = settings_service.get_section("ai", {})
-        logger.info(
-            "AI flags для wake-команды: enabled=%s apply_to_all_commands=%s provider=%s",
-            ai_cfg.get("enabled", False),
-            ai_cfg.get("apply_to_all_commands", False),
-            ai_cfg.get("provider", "unknown"),
-        )
-
-        if ai_cfg.get("enabled", False) and ai_cfg.get("apply_to_all_commands", False):
-            logger.info("Запуск AI refine для wake-команды.")
-
-            ai_result = pipeline.ai_gateway.refine_command_text(
-                cleaned_text,
-                rules={
-                    "polite_words": nlu_resources.polite_words,
-                    "filler_words": nlu_resources.filler_words,
-                    "command_verbs": nlu_resources.command_verbs,
-                    "extension_aliases": nlu_resources.extension_aliases,
-                }
-            )
-
-            logger.info("AI refine wake-command result: %s", ai_result)
-
-            if ai_result:
-                if ai_result.get("normalized_text"):
-                    final_text = ai_result["normalized_text"].strip()
-
-                ai_intent_hint = self._normalize_ai_intent_hint(ai_result.get("intent_hint"))
-                target_hint = ai_result.get("target_hint")
-                entity_type_hint = ai_result.get("entity_type_hint")
-
-                logger.info(
-                    "Wake-команда после AI refine: %s | raw_intent_hint=%s | normalized_intent_hint=%s | target_hint=%s | entity_type_hint=%s | confidence=%s",
-                    final_text,
-                    ai_result.get("intent_hint"),
-                    ai_intent_hint,
-                    target_hint,
-                    entity_type_hint,
-                    ai_result.get("confidence"),
-                )
-
-        command = pipeline.parser.parse(final_text)
-        parser_intent = command.intent
-
-        logger.info("Wake parser returned intent=%s target=%s", command.intent, command.target_text)
-
-        special_parser_intents = {
-            "enable_chat_mode",
-            "disable_chat_mode",
-            "enable_dictation",
-            "disable_dictation",
-            "select_candidate",
-            "confirm_deep_search",
-            "reject_deep_search",
-            "custom_command",
-            "negative_feedback",
-        }
-
-        target_override_allowed_intents = {
-            "generic_open",
-            "open_file",
-            "open_folder",
-            "search_web",
-            "search_youtube",
-            "play_music_query",
-        }
-
-        if parser_intent in special_parser_intents:
-            logger.info("AI override пропущен для wake-команды: parser уже распознал special intent=%s", parser_intent)
-        else:
-            if ai_intent_hint:
-                logger.info("Применяю AI intent_hint=%s вместо parser intent=%s", ai_intent_hint, parser_intent)
-                command.intent = ai_intent_hint
-
-            if target_hint and command.intent in target_override_allowed_intents:
-                logger.info("Применяю AI target_hint=%s", target_hint)
-                command.target_text = str(target_hint).strip()
-
-        logger.info("WAKE PARSED intent=%s target=%s", command.intent, command.target_text)
-        print(f"[PARSED] intent={command.intent}, target={command.target_text}")
-
-        if runtime_control.is_cancelled():
-            logger.info("Wake-команда отменена пользователем после parse.")
-            self.notifier.say("Операция отменена.")
-            return None
-
-        if command.intent == "select_candidate":
-            try:
-                return pipeline._handle_selection(int(command.target_text))
-            except Exception:
-                self.notifier.say("Не удалось выбрать вариант.")
-                return None
-
-        if command.intent == "confirm_deep_search":
-            pending = session_state.pending_deep_search_command
-            if pending is None:
-                logger.info("Нет запроса на глубокий поиск.")
-                self.notifier.say("Нет запроса на глубокий поиск.")
-                return None
-            return pipeline._handle_command(pending, deep_search=True)
-
-        if command.intent == "reject_deep_search":
-            return pipeline._handle_command(command, deep_search=False)
-
-        return pipeline._handle_command(command, deep_search=False)
-
-    def _request_activation(self, source: str, initial_text: str | None = None):
+    def _request_activation(self, source: str = "hotkey", initial_text: str | None = None) -> bool:
+        """
+        Запускает обработку команды.
+        """
         if self.is_paused:
-            logger.info("Команда проигнорирована: ассистент на паузе. source=%s", source)
-            self.notifier.say("Ассистент на паузе.")
+            logger.info("Активация проигнорирована: ассистент на паузе. source=%s", source)
             return False
 
-        if not self._is_microphone_allowed():
-            logger.info("Команда проигнорирована: микрофон отключён. source=%s", source)
-            print("[BG] Команда проигнорирована: микрофон отключён в настройках.")
-            self.notifier.say("Микрофон отключён. Включите его во вкладке Аудио.")
-            return False
+        self._prepare_for_new_activation()
 
         if self.is_busy():
             if source == "hotkey" and self.cancel_on_second_press:
@@ -311,17 +185,23 @@ class BackgroundAssistantService:
                 if self.pipeline is not None:
                     self.pipeline.cancel_current_operation()
 
+                self._suppress_wake_for(self.wake_post_activation_cooldown_sec)
                 self.notifier.say("Текущая операция отменена.")
             else:
                 logger.info("Ассистент уже обрабатывает предыдущую команду. source=%s", source)
+
                 if source == "hotkey":
                     print("[BG] Ассистент уже обрабатывает предыдущую команду.")
                     self.notifier.say("Я ещё работаю.")
+
             return False
 
         def worker():
             runtime_control.start_job()
+
             try:
+                self._prepare_for_new_activation()
+
                 if source == "voice":
                     logger.info("Голосовая активация сработала. initial_text=%r", initial_text)
                     print("[BG] Голосовая активация сработала.")
@@ -334,7 +214,19 @@ class BackgroundAssistantService:
                 pipeline = self._get_pipeline()
 
                 if initial_text:
-                    self._run_recognized_text_directly(pipeline, initial_text)
+                    if self._looks_like_incomplete_initial_command(initial_text):
+                        logger.info(
+                            "initial_text похож на неполную команду. Запускаю обычную запись команды: %r",
+                            initial_text,
+                        )
+                        pipeline.run_once()
+                    else:
+                        pipeline.run_text(
+                            text=initial_text,
+                            language="ru",
+                            source="wake_initial_text",
+                            announce_processing=True,
+                        )
                 else:
                     pipeline.run_once()
 
@@ -342,19 +234,23 @@ class BackgroundAssistantService:
                 logger.exception("Ошибка во время выполнения команды: %s", e)
                 print(f"[BG][ERROR] Ошибка во время выполнения команды: {e}")
                 self.notifier.say("Произошла ошибка во время выполнения команды.")
+
             finally:
+                self._suppress_wake_for(self.wake_post_activation_cooldown_sec)
                 runtime_control.finish_job()
 
         self._worker_thread = threading.Thread(target=worker, daemon=True)
         self._worker_thread.start()
+
         return True
 
     def _on_activate(self):
-        # Hotkey остаётся рабочим всегда как запасной способ,
-        # даже если в настройках выбран режим "По голосу".
         self._request_activation(source="hotkey")
 
     def _extract_command_after_wake(self, text: str) -> str | None:
+        """
+        Возвращает текст после wake-фразы.
+        """
         phrase = _normalize_wake_text(self.voice_activation_phrase)
         recognized = _normalize_wake_text(text)
 
@@ -389,6 +285,16 @@ class BackgroundAssistantService:
                 if self.activation_mode != "voice":
                     break
 
+                if self._is_wake_suppressed():
+                    stop_event.wait(0.25)
+                    continue
+
+                # Не слушаем wake-фразу, пока ассистент сам говорит.
+                if self.notifier.is_speaking():
+                    self._suppress_wake_for(0.5)
+                    stop_event.wait(0.25)
+                    continue
+
                 if self.is_paused or self.is_busy() or not self._is_microphone_allowed():
                     stop_event.wait(0.5)
                     continue
@@ -413,8 +319,13 @@ class BackgroundAssistantService:
                         )
                         print(f"[BG] Wake-фраза распознана: {stt_result.text}")
 
+                        self._suppress_wake_for(1.0)
+
                         if command_after_wake:
-                            self._request_activation(source="voice", initial_text=command_after_wake)
+                            self._request_activation(
+                                source="voice",
+                                initial_text=command_after_wake,
+                            )
                         else:
                             self._request_activation(source="voice")
 
@@ -425,16 +336,20 @@ class BackgroundAssistantService:
 
                 except (MicrophoneSelectionError, NoMicrophoneSignalError) as e:
                     now = time.time()
+
                     if now - last_error_log_time > 10:
                         logger.warning("Wake-listener: проблема микрофона: %s", e)
                         last_error_log_time = now
+
                     stop_event.wait(1.0)
 
                 except Exception as e:
                     now = time.time()
+
                     if now - last_error_log_time > 10:
                         logger.exception("Wake-listener: ошибка: %s", e)
                         last_error_log_time = now
+
                     stop_event.wait(1.0)
 
                 finally:
@@ -490,6 +405,7 @@ class BackgroundAssistantService:
 
     def _on_like(self):
         last = session_state.last_resolved
+
         if last and last.target_path:
             register_positive_feedback(last.target_path)
             logger.info("Лайк сохранён: %s", last.target_name)
@@ -502,6 +418,7 @@ class BackgroundAssistantService:
 
     def _on_dislike(self):
         last = session_state.last_resolved
+
         if last and last.target_path:
             register_negative_feedback(last.target_path)
             logger.info("Дизлайк сохранён: %s", last.target_name)
@@ -523,15 +440,15 @@ class BackgroundAssistantService:
     def _create_listener(self):
         open_hotkey = keyboard.HotKey(
             keyboard.HotKey.parse(self.hotkey),
-            self._on_activate
+            self._on_activate,
         )
         like_hotkey = keyboard.HotKey(
             keyboard.HotKey.parse("<ctrl>+<alt>+<up>"),
-            self._on_like
+            self._on_like,
         )
         dislike_hotkey = keyboard.HotKey(
             keyboard.HotKey.parse("<ctrl>+<alt>+<down>"),
-            self._on_dislike
+            self._on_dislike,
         )
 
         def on_press(key):
@@ -554,16 +471,19 @@ class BackgroundAssistantService:
                 self.listener.stop()
             except Exception:
                 pass
+
             self.listener = None
 
         try:
             self.listener = self._create_listener()
             self.listener.start()
             logger.info("Listener перезапущен с новой горячей клавишей: %s", self.hotkey)
+
         except ValueError as e:
             logger.exception("Ошибка формата hotkey: %s", e)
             print(f"[BG][ERROR] Ошибка формата hotkey: {e}")
             self.notifier.say("Неверный формат горячей клавиши.")
+
         except Exception as e:
             logger.exception("Не удалось запустить listener горячих клавиш: %s", e)
             print(f"[BG][ERROR] Не удалось запустить listener горячих клавиш: {e}")
@@ -584,6 +504,7 @@ class BackgroundAssistantService:
             self.activation_mode,
             self.voice_activation_phrase,
         )
+
         print(f"[BG] Фоновый режим запущен. Горячая клавиша: {self.hotkey}")
         print(f"[BG] Режим активации: {self.activation_mode}")
         print("[BG] Лайк: Ctrl+Alt+Up | Дизлайк: Ctrl+Alt+Down")
@@ -592,11 +513,17 @@ class BackgroundAssistantService:
     def stop(self):
         self._stop_wake_listener()
 
+        try:
+            self.notifier.stop_speaking()
+        except Exception:
+            pass
+
         if self.listener:
             try:
                 self.listener.stop()
             except Exception:
                 pass
+
             self.listener = None
 
         if self.is_busy() and self.pipeline is not None:

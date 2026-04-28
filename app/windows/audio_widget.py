@@ -21,7 +21,12 @@ from PySide6.QtWidgets import (
 )
 
 from app.settings_service import settings_service
-from app.speech.recorder import list_input_devices, list_output_devices
+from app.speech.recorder import (
+    list_input_devices,
+    list_output_devices,
+    resolve_input_device,
+    refresh_audio_devices,
+)
 from app.windows.floating_save_bar import FloatingSaveBar
 
 
@@ -57,6 +62,20 @@ def _apply_status_style(label: QLabel, status_kind: str):
             color: {fg};
         }}
     """)
+
+
+def _normalize_device_name(device_name: str) -> str:
+    return " ".join((device_name or "").lower().replace("ё", "е").split())
+
+
+def _device_name_matches(selected_name: str, real_name: str) -> bool:
+    selected = _normalize_device_name(selected_name)
+    real = _normalize_device_name(real_name)
+
+    if not selected or not real:
+        return False
+
+    return selected == real or selected in real or real in selected
 
 
 class InfoCard(QFrame):
@@ -239,7 +258,7 @@ class AudioSettingsWidget(QWidget):
         self.heartbeat_edit = QLineEdit()
 
         self.refresh_devices_btn = QPushButton("Обновить список устройств")
-        self.refresh_devices_btn.clicked.connect(self.refresh_devices)
+        self.refresh_devices_btn.clicked.connect(lambda: self.refresh_devices(force_refresh=True))
 
         form.addRow("Устройство вывода:", self.output_combo)
         form.addRow("", self.enabled_voice_checkbox)
@@ -267,7 +286,7 @@ class AudioSettingsWidget(QWidget):
 
         self.devices_timer = QTimer(self)
         self.devices_timer.timeout.connect(self._auto_refresh_devices_if_visible)
-        self.devices_timer.start(30000)
+        self.devices_timer.start(5000)
 
     def _connect_change_signals(self):
         self.mic_combo.currentIndexChanged.connect(self._update_save_buttons)
@@ -299,7 +318,7 @@ class AudioSettingsWidget(QWidget):
 
     def on_tab_activated(self):
         if not self._dirty:
-            self.refresh_devices()
+            self.refresh_devices(force_refresh=True)
             self.refresh_status()
 
     def on_tab_deactivated(self):
@@ -310,29 +329,51 @@ class AudioSettingsWidget(QWidget):
         super().showEvent(event)
 
         if not self._dirty:
-            self.refresh_devices()
+            self.refresh_devices(force_refresh=True)
             self.refresh_status()
 
     def _auto_refresh_devices_if_visible(self):
-        if self.isVisible() and not self._dirty:
-            self.refresh_devices()
+        if self._meter_stream is not None:
+            return
 
-    def _populate_device_lists(self, selected_mic: str, selected_output: str):
+        if self.isVisible() and not self._dirty:
+            self.refresh_devices(force_refresh=True)
+
+    def _populate_device_lists(self, selected_mic: str, selected_output: str, force_refresh: bool = False):
         self.mic_combo.blockSignals(True)
         self.output_combo.blockSignals(True)
+
+        if force_refresh:
+            refresh_audio_devices(force=False)
 
         self.mic_combo.clear()
         self.mic_combo.addItem("Не выбрано", "")
 
+        input_devices = []
+        output_devices = []
+
         try:
-            for dev in list_input_devices():
+            input_devices = list_input_devices(refresh=False)
+            for dev in input_devices:
                 self.mic_combo.addItem(dev["name"], dev["name"])
         except Exception as e:
             self.mic_combo.addItem(f"Ошибка получения устройств: {e}", "")
 
+        selected_mic = selected_mic or ""
         if selected_mic:
             idx = self.mic_combo.findData(selected_mic)
-            self.mic_combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+            if idx < 0:
+                for i in range(self.mic_combo.count()):
+                    if _device_name_matches(selected_mic, self.mic_combo.itemData(i) or ""):
+                        idx = i
+                        break
+
+            if idx < 0:
+                self.mic_combo.addItem(f"Недоступно: {selected_mic}", selected_mic)
+                idx = self.mic_combo.count() - 1
+
+            self.mic_combo.setCurrentIndex(idx)
         else:
             self.mic_combo.setCurrentIndex(0)
 
@@ -340,21 +381,38 @@ class AudioSettingsWidget(QWidget):
         self.output_combo.addItem("Не выбрано", "")
 
         try:
-            for dev in list_output_devices():
+            output_devices = list_output_devices(refresh=False)
+            for dev in output_devices:
                 self.output_combo.addItem(dev["name"], dev["name"])
         except Exception as e:
             self.output_combo.addItem(f"Ошибка получения устройств: {e}", "")
 
+        selected_output = selected_output or ""
         if selected_output:
             idx = self.output_combo.findData(selected_output)
-            self.output_combo.setCurrentIndex(idx if idx >= 0 else 0)
+
+            if idx < 0:
+                for i in range(self.output_combo.count()):
+                    if _device_name_matches(selected_output, self.output_combo.itemData(i) or ""):
+                        idx = i
+                        break
+
+            if idx < 0:
+                self.output_combo.addItem(f"Недоступно: {selected_output}", selected_output)
+                idx = self.output_combo.count() - 1
+
+            self.output_combo.setCurrentIndex(idx)
         else:
             self.output_combo.setCurrentIndex(0)
 
         self.mic_combo.blockSignals(False)
         self.output_combo.blockSignals(False)
 
-    def refresh_devices(self):
+    def refresh_devices(self, force_refresh: bool = True):
+        if self._meter_stream is not None:
+            self.refresh_status()
+            return
+
         if self._dirty:
             selected_mic = self.mic_combo.currentData() or ""
             selected_output = self.output_combo.currentData() or ""
@@ -363,7 +421,7 @@ class AudioSettingsWidget(QWidget):
             selected_mic = cfg.get("audio", {}).get("input_device_name", "")
             selected_output = cfg.get("audio", {}).get("output_device_name", "")
 
-        self._populate_device_lists(selected_mic, selected_output)
+        self._populate_device_lists(selected_mic, selected_output, force_refresh=force_refresh)
         self.refresh_status()
 
     def _load_from_settings(self, reset_dirty: bool):
@@ -375,7 +433,8 @@ class AudioSettingsWidget(QWidget):
 
         self._populate_device_lists(
             audio.get("input_device_name", ""),
-            audio.get("output_device_name", "")
+            audio.get("output_device_name", ""),
+            force_refresh=True,
         )
 
         self.microphone_enabled_checkbox.setChecked(audio.get("microphone_enabled", True))
@@ -427,6 +486,19 @@ class AudioSettingsWidget(QWidget):
         self._set_save_buttons_enabled(self._dirty)
         self.refresh_status()
 
+    def _selected_mic_available(self, selected_mic: str) -> bool:
+        if not selected_mic:
+            return False
+
+        try:
+            for dev in list_input_devices(refresh=False):
+                if _device_name_matches(selected_mic, dev["name"]):
+                    return True
+        except Exception:
+            return False
+
+        return False
+
     def _audio_status(self) -> tuple[str, str, str]:
         if not self.microphone_enabled_checkbox.isChecked():
             return (
@@ -439,14 +511,13 @@ class AudioSettingsWidget(QWidget):
         if not selected_mic:
             return "Недоступно", "bad", "Микрофон не выбран. Выберите устройство ввода из списка."
 
-        found = False
-        for i in range(self.mic_combo.count()):
-            if self.mic_combo.itemData(i) == selected_mic:
-                found = True
-                break
-
-        if not found:
-            return "Недоступно", "bad", "Выбранный микрофон не найден среди доступных устройств."
+        if not self._selected_mic_available(selected_mic):
+            return (
+                "Недоступно",
+                "bad",
+                "Выбранный микрофон сейчас не найден. "
+                "Если вы только что подключили устройство, подождите несколько секунд или нажмите «Обновить список устройств»."
+            )
 
         if self._meter_stream is not None and self.meter_bar.value() <= 2:
             return "Проверяется", "process", "Тест микрофона включён, но пока сигнал почти не слышен."
@@ -468,11 +539,15 @@ class AudioSettingsWidget(QWidget):
         if not selected_name:
             return None
 
-        for dev in list_input_devices():
-            if dev["name"] == selected_name:
-                return dev["index"]
-
-        return None
+        try:
+            device_index, _resolved_name = resolve_input_device(
+                selected_name=selected_name,
+                allow_fallback=False,
+                refresh=True,
+            )
+            return device_index
+        except Exception:
+            return None
 
     def _audio_callback(self, indata, frames, time_info, status):
         if status:
@@ -520,7 +595,8 @@ class AudioSettingsWidget(QWidget):
 
         device_index = self._find_selected_input_device_index()
         if device_index is None:
-            QMessageBox.warning(self, "Нет микрофона", "Сначала выберите микрофон.")
+            QMessageBox.warning(self, "Нет микрофона", "Сначала выберите доступный микрофон.")
+            self.refresh_devices(force_refresh=True)
             return False
 
         try:
@@ -544,6 +620,7 @@ class AudioSettingsWidget(QWidget):
         except Exception as e:
             self._meter_stream = None
             QMessageBox.critical(self, "Ошибка", f"Не удалось запустить тест микрофона:\n{e}")
+            self.refresh_devices(force_refresh=True)
             self.refresh_status()
             return False
 
@@ -567,8 +644,6 @@ class AudioSettingsWidget(QWidget):
         self.meter_hint_label.setText("Уровень сигнала пока не оценён.")
         self.test_mic_btn.setText("Проверить микрофон")
 
-        # Теперь блок со шкалой полностью исчезает после остановки теста
-        # или завершения автонастройки.
         self.meter_panel.setVisible(False)
 
         self.refresh_status()
@@ -687,7 +762,6 @@ class AudioSettingsWidget(QWidget):
         self.refresh_status()
         self.save_bar.show_saved("Успешно настроено")
 
-        # После завершения автонастройки тест микрофона больше не нужен.
         QTimer.singleShot(900, self._stop_meter)
 
     def save_settings(self):
@@ -731,7 +805,7 @@ class AudioSettingsWidget(QWidget):
         self._dirty = False
 
         self.refresh_status()
-        self.save_bar.show_saved("Сохранено!")
+        self.save_bar.show_saved("Успешно настроено")
 
     def closeEvent(self, event):
         self._stop_meter()

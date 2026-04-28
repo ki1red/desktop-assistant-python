@@ -1,3 +1,4 @@
+import threading
 import time
 import uuid
 import wave
@@ -23,7 +24,8 @@ class NoMicrophoneSignalError(RuntimeError):
 
 MIC_INCLUDE_KEYWORDS = [
     "microphone", "mic", "микрофон", "гарнитура", "headset",
-    "webcam", "камера", "array", "usb"
+    "webcam", "камера", "array", "usb", "input", "fifine",
+    "realtek", "audio"
 ]
 
 MIC_EXCLUDE_KEYWORDS = [
@@ -42,6 +44,71 @@ OUTPUT_EXCLUDE_KEYWORDS = [
     "microphone", "mic", "микрофон", "input", "вход",
     "loopback", "stereo mix", "virtual cable"
 ]
+
+
+_AUDIO_DEVICE_REFRESH_LOCK = threading.RLock()
+_LAST_AUDIO_DEVICE_REFRESH_MONO = 0.0
+
+
+def refresh_audio_devices(force: bool = False, min_interval_sec: float = 5.0) -> bool:
+    """
+    Принудительно обновляет список аудиоустройств PortAudio/sounddevice.
+
+    Это помогает в ситуации, когда приложение стартовало раньше,
+    чем Windows успела поднять USB-микрофон.
+    """
+    global _LAST_AUDIO_DEVICE_REFRESH_MONO
+
+    now = time.monotonic()
+
+    with _AUDIO_DEVICE_REFRESH_LOCK:
+        if not force and (now - _LAST_AUDIO_DEVICE_REFRESH_MONO) < min_interval_sec:
+            return False
+
+        _LAST_AUDIO_DEVICE_REFRESH_MONO = now
+
+        try:
+            terminate = getattr(sd, "_terminate", None)
+            initialize = getattr(sd, "_initialize", None)
+
+            if callable(terminate) and callable(initialize):
+                terminate()
+                initialize()
+                logger.info("Список аудиоустройств обновлён через PortAudio reinitialize.")
+                return True
+
+            # Фолбэк для версий sounddevice без приватных методов.
+            sd.query_devices()
+            logger.info("Список аудиоустройств обновлён через query_devices fallback.")
+            return True
+
+        except Exception as e:
+            logger.warning("Не удалось принудительно обновить список аудиоустройств: %s", e)
+            return False
+
+
+def _normalize_device_name(device_name: str) -> str:
+    value = (device_name or "").lower().replace("ё", "е")
+    value = " ".join(value.split())
+    return value
+
+
+def _device_name_matches(selected_name: str, real_name: str) -> bool:
+    """
+    Сравнивает сохранённое имя устройства с реальным.
+
+    Поддерживает:
+    - точное совпадение;
+    - частичное совпадение;
+    - случай, когда Windows/Qt обрезали имя устройства.
+    """
+    selected = _normalize_device_name(selected_name)
+    real = _normalize_device_name(real_name)
+
+    if not selected or not real:
+        return False
+
+    return selected == real or selected in real or real in selected
 
 
 def _looks_like_microphone(device_name: str) -> bool:
@@ -68,8 +135,21 @@ def _looks_like_output_device(device_name: str) -> bool:
     return True
 
 
-def list_input_devices() -> list[dict]:
-    devices = sd.query_devices()
+def _query_devices_safe(refresh: bool = False):
+    if refresh:
+        refresh_audio_devices(force=False)
+
+    try:
+        return sd.query_devices()
+    except Exception as e:
+        logger.warning("sd.query_devices() failed: %s. Пробую обновить PortAudio.", e)
+        refresh_audio_devices(force=True)
+
+    return sd.query_devices()
+
+
+def list_input_devices(refresh: bool = False) -> list[dict]:
+    devices = _query_devices_safe(refresh=refresh)
     result = []
 
     for idx, dev in enumerate(devices):
@@ -90,8 +170,8 @@ def list_input_devices() -> list[dict]:
     return result
 
 
-def list_output_devices() -> list[dict]:
-    devices = sd.query_devices()
+def list_output_devices(refresh: bool = False) -> list[dict]:
+    devices = _query_devices_safe(refresh=refresh)
     result = []
 
     for idx, dev in enumerate(devices):
@@ -112,27 +192,129 @@ def list_output_devices() -> list[dict]:
     return result
 
 
-def _resolve_input_device(selected_name: str) -> tuple[int, str]:
-    devices = list_input_devices()
-
-    if not devices:
-        raise MicrophoneSelectionError("На компьютере не обнаружены устройства записи.")
-
+def _pick_selected_input_device(devices: list[dict], selected_name: str) -> dict | None:
     selected_name = (selected_name or "").strip()
     if not selected_name:
-        raise MicrophoneSelectionError("Микрофон не выбран. Укажи его во вкладке «Голос».")
+        return None
 
     for dev in devices:
         if dev["name"] == selected_name:
-            return dev["index"], dev["name"]
+            return dev
 
-    low = selected_name.lower()
     for dev in devices:
-        if low in dev["name"].lower():
-            return dev["index"], dev["name"]
+        if _device_name_matches(selected_name, dev["name"]):
+            return dev
 
-    raise MicrophoneSelectionError(
-        "Выбранный микрофон недоступен. Проверь устройство во вкладке «Голос»."
+    return None
+
+
+def _pick_default_input_device(devices: list[dict]) -> dict | None:
+    if not devices:
+        return None
+
+    try:
+        default_device = sd.default.device
+
+        if isinstance(default_device, (tuple, list)):
+            default_input_index = default_device[0]
+        else:
+            default_input_index = default_device
+
+        if default_input_index is not None and int(default_input_index) >= 0:
+            for dev in devices:
+                if int(dev["index"]) == int(default_input_index):
+                    return dev
+
+    except Exception as e:
+        logger.debug("Не удалось определить default input device: %s", e)
+
+    return devices[0]
+
+
+def _save_resolved_input_device_if_changed(old_name: str, new_name: str):
+    old_name = (old_name or "").strip()
+    new_name = (new_name or "").strip()
+
+    if not new_name or old_name == new_name:
+        return
+
+    try:
+        def mutator(cfg: dict):
+            cfg.setdefault("audio", {})
+            current = (cfg["audio"].get("input_device_name", "") or "").strip()
+
+            if current == old_name:
+                cfg["audio"]["input_device_name"] = new_name
+
+        settings_service.update(mutator)
+        logger.info("Выбранный микрофон обновлён в настройках: %r -> %r", old_name, new_name)
+
+    except Exception as e:
+        logger.warning("Не удалось сохранить обновлённый микрофон в settings.json: %s", e)
+
+
+def resolve_input_device(
+    selected_name: str | None = None,
+    allow_fallback: bool = True,
+    refresh: bool = True,
+) -> tuple[int, str]:
+    """
+    Находит индекс микрофона.
+
+    Логика:
+    - сначала ищем выбранный микрофон;
+    - если не нашли, обновляем список устройств;
+    - если всё ещё не нашли, берём default input / первый доступный микрофон.
+    """
+    selected_name = (selected_name or "").strip()
+
+    devices = list_input_devices(refresh=False)
+    selected_device = _pick_selected_input_device(devices, selected_name)
+
+    if selected_device is None and refresh:
+        devices = list_input_devices(refresh=True)
+        selected_device = _pick_selected_input_device(devices, selected_name)
+
+    if not devices:
+        raise MicrophoneSelectionError(
+            "На компьютере не обнаружены устройства записи. "
+            "Проверьте подключение микрофона и разрешения Windows."
+        )
+
+    if selected_device is not None:
+        _save_resolved_input_device_if_changed(selected_name, selected_device["name"])
+        return selected_device["index"], selected_device["name"]
+
+    if not allow_fallback:
+        raise MicrophoneSelectionError(
+            "Выбранный микрофон недоступен. Проверьте устройство во вкладке «Аудио»."
+        )
+
+    fallback = _pick_default_input_device(devices)
+
+    if fallback is None:
+        raise MicrophoneSelectionError(
+            "Не удалось выбрать устройство записи. Проверьте микрофон во вкладке «Аудио»."
+        )
+
+    logger.warning(
+        "Выбранный микрофон недоступен: %r. Использую fallback microphone: %r",
+        selected_name,
+        fallback["name"],
+    )
+
+    _save_resolved_input_device_if_changed(selected_name, fallback["name"])
+    return fallback["index"], fallback["name"]
+
+
+def _resolve_input_device(selected_name: str) -> tuple[int, str]:
+    """
+    Старое имя функции оставлено для совместимости.
+    """
+    return resolve_input_device(
+        selected_name=selected_name,
+        allow_fallback=True,
+        refresh=True,
     )
 
 
@@ -175,6 +357,7 @@ def record_audio_to_wav() -> str:
     cfg = settings_service.get_all()
     audio_cfg = cfg["audio"]
     paths_cfg = cfg["paths"]
+
     if not bool(audio_cfg.get("microphone_enabled", True)):
         raise MicrophoneSelectionError(
             "Использование микрофона отключено в настройках. Включите микрофон во вкладке «Аудио»."
@@ -198,7 +381,11 @@ def record_audio_to_wav() -> str:
     temp_dir = Path(paths_cfg["temp_dir"])
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    device_index, resolved_name = _resolve_input_device(selected_device_name)
+    device_index, resolved_name = resolve_input_device(
+        selected_name=selected_device_name,
+        allow_fallback=True,
+        refresh=True,
+    )
     logger.info("Используется устройство записи: %s (index=%s)", resolved_name, device_index)
 
     frames = []
@@ -272,7 +459,8 @@ def record_audio_to_wav() -> str:
 
     if not signal_detected and final_rms < no_signal_rms_threshold:
         raise NoMicrophoneSignalError(
-            "На выбранном микрофоне не обнаружен сигнал. Проверь выключение микрофона, расстояние до него или уровень записи в системе."
+            "На выбранном микрофоне не обнаружен сигнал. "
+            "Проверьте выключение микрофона, расстояние до него или уровень записи в системе."
         )
 
     wav_path = temp_dir / f"record_{uuid.uuid4().hex}.wav"
@@ -281,15 +469,10 @@ def record_audio_to_wav() -> str:
     logger.info("Аудио записано: %s", wav_path)
     return str(wav_path)
 
+
 def record_wake_audio_to_wav(max_seconds: float | None = None) -> str:
     """
     Короткая запись для режима голосовой активации.
-
-    Отличие от record_audio_to_wav():
-    - пишет короткий фиксированный фрагмент;
-    - не ждёт длинную команду;
-    - не говорит пользователю об отсутствии речи;
-    - нужна только для проверки wake-фразы вроде "ассистент".
     """
     cfg = settings_service.get_all()
     audio_cfg = cfg["audio"]
@@ -321,7 +504,11 @@ def record_wake_audio_to_wav(max_seconds: float | None = None) -> str:
     temp_dir = Path(paths_cfg["temp_dir"])
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    device_index, resolved_name = _resolve_input_device(selected_device_name)
+    device_index, resolved_name = resolve_input_device(
+        selected_name=selected_device_name,
+        allow_fallback=True,
+        refresh=True,
+    )
 
     frames = []
     total_duration = 0.0
@@ -367,6 +554,7 @@ def record_wake_audio_to_wav(max_seconds: float | None = None) -> str:
 
     logger.debug("Wake-аудио записано: %s device=%s", wav_path, resolved_name)
     return str(wav_path)
+
 
 def delete_temp_file(path: str | None):
     if not path:

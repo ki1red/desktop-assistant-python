@@ -24,6 +24,44 @@ class CandidateWrapper:
 
 
 class TargetResolver:
+    """
+    Resolver отвечает только за поиск локальных целей:
+    приложения, файлы, папки, явные пути.
+
+    Новая логика:
+    - подтверждения отключены;
+    - если найдено несколько кандидатов, выбирается первый;
+    - deep search не спрашивает "да/нет";
+    - deep search запускается только при search_modes.auto_deep_search=true.
+    """
+
+    SERVICE_INTENTS = {
+        "search_web",
+        "search_youtube",
+        "play_music_query",
+        "enable_dictation",
+        "disable_dictation",
+        "enable_chat_mode",
+        "disable_chat_mode",
+        "custom_command",
+        "negative_feedback",
+        "incomplete_command",
+    }
+
+    LEGACY_CONFIRMATION_INTENTS = {
+        "confirm_deep_search",
+        "reject_deep_search",
+        "select_candidate",
+    }
+
+    LOCAL_TARGET_INTENTS = {
+        "open_file",
+        "open_folder",
+        "open_app",
+        "generic_open",
+        "play_media",
+    }
+
     def _debug_print(self, label: str, candidates):
         if not ASSISTANT_SETTINGS.get("debug_candidates", True):
             return
@@ -36,9 +74,8 @@ class TargetResolver:
         """
         Старый метод оставлен для совместимости.
 
-        Раньше он решал, нужно ли спрашивать подтверждение.
-        Теперь подтверждения отключены, но метод может пригодиться
-        для будущей аналитики качества выбора.
+        Подтверждения отключены, поэтому результат метода больше
+        не используется для вопроса пользователю.
         """
         if not candidates:
             return False
@@ -61,6 +98,10 @@ class TargetResolver:
         return False
 
     def _is_good_enough_to_stop(self, candidates):
+        """
+        Проверяет, достаточно ли хороший лучший кандидат,
+        чтобы не продолжать поиск по другим типам целей.
+        """
         if not candidates:
             return False
 
@@ -78,7 +119,9 @@ class TargetResolver:
 
     def _confirmation_message(self, candidates):
         """
-        Старый метод оставлен, но больше не используется для голосового подтверждения.
+        Старый метод оставлен только для совместимости.
+
+        Новая логика не использует голосовые подтверждения.
         """
         numbered = []
         for i, c in enumerate(candidates[:3], start=1):
@@ -93,16 +136,24 @@ class TargetResolver:
         Новая логика:
         - если кандидатов нет — ошибка;
         - если кандидаты есть — всегда выбираем первого;
-        - подтверждение через «первый/второй/третий» больше не запрашиваем.
+        - needs_confirmation всегда False;
+        - suggests_deep_search всегда False.
         """
         if not candidates:
-            return ResolvedTarget(success=False, error=not_found_error)
+            return ResolvedTarget(
+                success=False,
+                error=not_found_error,
+                needs_confirmation=False,
+                confirmation_message=None,
+                suggests_deep_search=False,
+            )
 
         best = candidates[0]
 
         if force_confirmation:
             logger.info(
-                "Resolver | подтверждение было бы нужно по старой логике, но теперь включён автовыбор первого кандидата."
+                "Resolver | старый сценарий требовал бы подтверждение, "
+                "но подтверждения отключены. Выбираю первый кандидат."
             )
 
         logger.info(
@@ -126,34 +177,38 @@ class TargetResolver:
 
     def _auto_deep_search_enabled(self) -> bool:
         """
-        Проверяет, можно ли автоматически запускать глубокий поиск.
+        Проверяет, включён ли автоматический глубокий поиск.
 
-        Поддерживаем два варианта:
-        - новый auto_deep_search;
-        - старый allow_deep_search_after_prompt.
-
-        Так старые настройки не ломаются: если раньше deep search был разрешён
-        после вопроса, теперь он просто выполняется автоматически.
+        Важно:
+        allow_deep_search_after_prompt больше не используем,
+        потому что prompt "выполнить глубокий поиск?" отключён.
         """
-        return bool(
-            SEARCH_MODE_SETTINGS.get("auto_deep_search", False)
-            or SEARCH_MODE_SETTINGS.get("allow_deep_search_after_prompt", True)
-        )
+        return bool(SEARCH_MODE_SETTINGS.get("auto_deep_search", False))
 
     def _run_auto_deep_search_or_fail(self, command: ParsedCommand, fallback_error: str) -> ResolvedTarget:
         """
-        Автоматически запускает глубокий поиск вместо вопроса пользователю.
+        Автоматически запускает глубокий поиск, если он включён настройкой.
         """
         if runtime_control.is_cancelled():
-            return ResolvedTarget(success=False, error="Операция отменена пользователем.")
+            return ResolvedTarget(
+                success=False,
+                error="Операция отменена пользователем.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
 
         if not self._auto_deep_search_enabled():
             logger.info(
-                "Resolver | deep search отключён настройками. intent=%s target=%s",
+                "Resolver | deep search не запущен: auto_deep_search=false | intent=%s target=%s",
                 command.intent,
                 command.target_text,
             )
-            return ResolvedTarget(success=False, error=fallback_error)
+            return ResolvedTarget(
+                success=False,
+                error=fallback_error,
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
 
         logger.info(
             "Resolver | быстрый поиск ничего не дал, запускаю deep search автоматически | intent=%s target=%s",
@@ -165,24 +220,32 @@ class TargetResolver:
 
     def _from_quick_access(self, query: str, allowed_types: list[str]):
         quick = get_quick_access_match(query, allowed_types)
+
         if quick and quick["score"] >= 96:
             return ResolvedTarget(
                 success=True,
                 target_type=quick["target_type"],
                 target_name=quick["name"],
                 target_path=quick["path"],
+                needs_confirmation=False,
+                suggests_deep_search=False,
             )
+
         return None
 
     def _from_usage(self, query: str, allowed_types: list[str], intent: str):
         usage_match = get_direct_usage_match(query, allowed_types, intent)
+
         if usage_match and usage_match["score"] >= USAGE_DIRECT_OPEN_SCORE:
             return ResolvedTarget(
                 success=True,
                 target_type=usage_match["target_type"],
                 target_name=usage_match["name"],
                 target_path=usage_match["path"],
+                needs_confirmation=False,
+                suggests_deep_search=False,
             )
+
         return None
 
     def _resolve_app_candidates(self, query: str):
@@ -195,8 +258,10 @@ class TargetResolver:
             return [CandidateWrapper(usage_hit.target_name, usage_hit.target_path, usage_hit.target_type)]
 
         app_candidates = find_best_app_matches(query)
+
         if app_candidates:
             self._debug_print("app candidates", app_candidates)
+
         return app_candidates
 
     def _resolve_file_candidates(self, query: str, generic_mode: bool = False, deep_search: bool = False):
@@ -214,8 +279,10 @@ class TargetResolver:
             generic_mode=generic_mode,
             deep_search=deep_search,
         )
+
         if file_candidates:
             self._debug_print("file candidates", file_candidates)
+
         return file_candidates
 
     def _resolve_folder_candidates(self, query: str, deep_search: bool = False):
@@ -233,16 +300,18 @@ class TargetResolver:
             generic_mode=False,
             deep_search=deep_search,
         )
+
         if folder_candidates:
             self._debug_print("folder candidates", folder_candidates)
+
         return folder_candidates
 
     def _deep_search_prompt(self):
         """
-        Старый метод оставлен для совместимости, но голосовой prompt отключён.
+        Старый метод оставлен для совместимости.
 
-        Теперь resolver не должен возвращать suggests_deep_search=True,
-        потому что пользователь больше не должен отвечать «да/нет».
+        Prompt отключён, поэтому метод больше не должен возвращать
+        suggests_deep_search=True.
         """
         return ResolvedTarget(
             success=False,
@@ -252,33 +321,12 @@ class TargetResolver:
             confirmation_message=None,
         )
 
-    def resolve(self, command: ParsedCommand, deep_search: bool = False) -> ResolvedTarget:
-        if runtime_control.is_cancelled():
-            return ResolvedTarget(success=False, error="Операция отменена пользователем.")
-
-        if command.intent == "negative_feedback":
-            return ResolvedTarget(success=False, error="negative_feedback")
-
-        if command.intent == "confirm_deep_search":
-            return ResolvedTarget(success=False, error="confirm_deep_search")
-
-        if command.intent == "reject_deep_search":
-            return ResolvedTarget(success=False, error="reject_deep_search")
-
-        if command.intent == "select_candidate":
-            return ResolvedTarget(success=False, error="select_candidate")
-
-        service_intents_without_target = {
-            "negative_feedback",
-            "confirm_deep_search",
-            "reject_deep_search",
-            "select_candidate",
-        }
-
-        if not command.target_text and command.intent not in service_intents_without_target:
-            return ResolvedTarget(success=False, error="Не удалось выделить цель команды.")
-
+    def _resolve_explicit_path_if_possible(self, command: ParsedCommand) -> ResolvedTarget | None:
+        """
+        Обрабатывает явные пути, если пользователь сказал или написал путь напрямую.
+        """
         explicit_path = detect_explicit_path(command.target_text)
+
         if explicit_path:
             target_type = "folder" if os.path.isdir(explicit_path) else "file"
             return ResolvedTarget(
@@ -286,10 +334,13 @@ class TargetResolver:
                 target_type=target_type,
                 target_name=Path(explicit_path).name,
                 target_path=explicit_path,
+                needs_confirmation=False,
+                suggests_deep_search=False,
             )
 
         if looks_like_explicit_path(command.target_text):
             ok, message = validate_path_step_by_step(command.target_text)
+
             if ok:
                 target_type = "folder" if os.path.isdir(message) else "file"
                 return ResolvedTarget(
@@ -297,11 +348,101 @@ class TargetResolver:
                     target_type=target_type,
                     target_name=Path(message).name,
                     target_path=message,
+                    needs_confirmation=False,
+                    suggests_deep_search=False,
                 )
-            return ResolvedTarget(success=False, error=message)
+
+            return ResolvedTarget(
+                success=False,
+                error=message,
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
+
+        return None
+
+    def _service_resolved(self, command: ParsedCommand) -> ResolvedTarget:
+        """
+        Возвращает нейтральный ResolvedTarget для команд,
+        которым локальный поиск не нужен.
+
+        Например:
+        - web search;
+        - music search;
+        - dictation on/off;
+        - chat on/off.
+        """
+        return ResolvedTarget(
+            success=True,
+            target_type="service",
+            target_name=command.target_text or command.intent,
+            target_path=None,
+            needs_confirmation=False,
+            confirmation_message=None,
+            suggests_deep_search=False,
+        )
+
+    def resolve(self, command: ParsedCommand, deep_search: bool = False) -> ResolvedTarget:
+        if runtime_control.is_cancelled():
+            return ResolvedTarget(
+                success=False,
+                error="Операция отменена пользователем.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
+
+        if command.intent in self.LEGACY_CONFIRMATION_INTENTS:
+            logger.info(
+                "Resolver | legacy confirmation intent ignored | intent=%s target=%s",
+                command.intent,
+                command.target_text,
+            )
+            return ResolvedTarget(
+                success=False,
+                error="Подтверждения и выбор вариантов отключены.",
+                needs_confirmation=False,
+                confirmation_message=None,
+                suggests_deep_search=False,
+            )
+
+        if command.intent in self.SERVICE_INTENTS:
+            return self._service_resolved(command)
+
+        if command.intent == "unknown":
+            return ResolvedTarget(
+                success=False,
+                error="Неизвестная команда.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
+
+        if command.intent not in self.LOCAL_TARGET_INTENTS:
+            return ResolvedTarget(
+                success=False,
+                error="Неизвестная команда.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
+
+        if not command.target_text:
+            return ResolvedTarget(
+                success=False,
+                error="Не удалось выделить цель команды.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
+
+        explicit_result = self._resolve_explicit_path_if_possible(command)
+        if explicit_result is not None:
+            return explicit_result
 
         if runtime_control.is_cancelled():
-            return ResolvedTarget(success=False, error="Операция отменена пользователем.")
+            return ResolvedTarget(
+                success=False,
+                error="Операция отменена пользователем.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
 
         if command.intent == "open_file" or command.intent == "play_media":
             candidates = self._resolve_file_candidates(
@@ -332,14 +473,12 @@ class TargetResolver:
 
             return self._wrap_result(candidates, "Папка не найдена.")
 
-        if command.intent in ["open_app"]:
+        if command.intent == "open_app":
             candidates = self._resolve_app_candidates(command.target_text)
 
             if runtime_control.is_cancelled():
                 return ResolvedTarget(success=False, error="Операция отменена пользователем.")
 
-            # Для приложений отдельного deep_search сейчас нет:
-            # find_best_app_matches уже ищет по приоритетным и общим источникам.
             return self._wrap_result(candidates, "Не удалось надежно определить приложение.")
 
         if command.intent == "generic_open":
@@ -357,14 +496,13 @@ class TargetResolver:
 
                 if abs(top1.score - top2.score) <= 8:
                     logger.info(
-                        "Resolver | неоднозначный короткий app-запрос, но выбираю первый вариант автоматически | "
+                        "Resolver | неоднозначный короткий app-запрос, выбираю первый вариант | "
                         "top1=%s score=%s | top2=%s score=%s",
                         top1.name,
                         top1.score,
                         top2.name,
                         top2.score,
                     )
-
                     return self._wrap_result(
                         app_candidates,
                         "Не удалось определить, что открыть.",
@@ -430,6 +568,16 @@ class TargetResolver:
                     "Не удалось определить, что именно открыть.",
                 )
 
-            return ResolvedTarget(success=False, error="Не удалось определить, что именно открыть.")
+            return ResolvedTarget(
+                success=False,
+                error="Не удалось определить, что именно открыть.",
+                needs_confirmation=False,
+                suggests_deep_search=False,
+            )
 
-        return ResolvedTarget(success=False, error="Неизвестная команда.")
+        return ResolvedTarget(
+            success=False,
+            error="Неизвестная команда.",
+            needs_confirmation=False,
+            suggests_deep_search=False,
+        )

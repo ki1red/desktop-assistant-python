@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QApplication
 from app.windows.main_window import AssistantMainWindow
 from app.windows.tray_controller import TrayController
 from app.windows.background_service import BackgroundAssistantService
+from app.windows.theme import apply_forced_light_theme
 from app.events.notifier import AssistantNotifier
 from app.settings_service import settings_service
 from app.logger import get_logger
@@ -17,6 +18,10 @@ class AppRuntime:
 
         logger.info("AppRuntime.__init__ | create QApplication")
         self.qt_app = QApplication([])
+
+        # Принудительно задаём светлую тему и чёрный текст,
+        # чтобы на разных устройствах Qt не подхватывал белый цвет текста.
+        apply_forced_light_theme(self.qt_app)
 
         self.qt_app.setQuitOnLastWindowClosed(False)
 

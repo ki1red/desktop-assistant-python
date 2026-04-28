@@ -12,15 +12,7 @@ from app.app_paths import (
     LOGS_DIR,
     ensure_app_dirs,
 )
-
-
-DEFAULT_PLUGIN_ENABLED = {
-    "filesystem": True,
-    "web": True,
-    "music": True,
-    "dictation": True,
-    "chat": True,
-}
+from app.plugins.defaults import DEFAULT_PLUGIN_ENABLED
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -64,10 +56,6 @@ def _resolve_existing_paths() -> list[str]:
 def _normalize_runtime_paths(cfg: dict) -> dict:
     """
     Приводит runtime-пути к реальным путям AppData.
-
-    Даже если в default_settings.json указано temp/data,
-    в пользовательский settings.json должны попадать реальные пути:
-    C:\\Users\\...\\AppData\\Local\\LocalAssistant\\...
     """
     cfg.setdefault("paths", {})
     cfg["paths"]["temp_dir"] = str(TEMP_DIR)
@@ -89,27 +77,9 @@ def _normalize_plugins(cfg: dict) -> dict:
     Мигрирует настройки плагинов к новому формату.
 
     Новый основной формат:
-    {
-      "plugins": {
-        "enabled": {
-          "filesystem": true,
-          "web": true,
-          "music": true,
-          "dictation": true,
-          "chat": true
-        }
-      }
-    }
+    plugins.enabled.<plugin_id> = true/false
 
-    Старый формат:
-    {
-      "assistant": {
-        "enabled_plugins": ["filesystem", "web", ...]
-      }
-    }
-
-    Старый формат не удаляем, а синхронизируем,
-    чтобы старые части проекта не сломались.
+    Старый assistant.enabled_plugins не удаляем, а синхронизируем.
     """
     cfg.setdefault("assistant", {})
     cfg.setdefault("plugins", {})
@@ -142,7 +112,7 @@ def _normalize_plugins(cfg: dict) -> dict:
 
     cfg["plugins"]["enabled"] = normalized_enabled
 
-    # Совместимый старый список. Его пока не удаляем.
+    # Совместимый старый список. Пока не удаляем.
     cfg["assistant"]["enabled_plugins"] = [
         plugin_id
         for plugin_id, enabled in normalized_enabled.items()
@@ -181,6 +151,7 @@ class ConfigLoader:
 
         merged = _deep_merge(defaults, user_cfg)
         merged = _normalize_config(merged)
+
         return merged
 
     def get(self) -> dict:

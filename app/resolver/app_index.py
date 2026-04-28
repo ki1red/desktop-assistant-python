@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from pathlib import Path
 from typing import List, Optional, Set
 
@@ -14,7 +15,7 @@ from app.text_variants import (
     normalize_query_text,
 )
 from app.utils import get_priority_roots
-import sqlite3
+
 
 def _build_priority_app_sources() -> set[str]:
     roots = set(get_priority_roots().keys())
@@ -25,6 +26,14 @@ def _build_priority_app_sources() -> set[str]:
 
 
 def _fetch_app_rows_prefiltered(query: str, source_kinds: Optional[Set[str]] = None, limit: int = 300):
+    """
+    Берёт из индекса только похожие приложения.
+
+    Важно:
+    количество LIKE-условий и количество params должны совпадать.
+    Раньше variant_conditions обрезались до 8, а params добавлялись для всех
+    вариантов, из-за чего SQLite мог падать с Incorrect number of bindings.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -36,21 +45,25 @@ def _fetch_app_rows_prefiltered(query: str, source_kinds: Optional[Set[str]] = N
         conditions.append(f"source_kind IN ({placeholders})")
         params.extend(list(source_kinds))
 
-    variant_conditions = []
+    variants = []
     for variant in sorted(build_name_variants(query)):
-        v = normalize_basic(variant)
-        if len(v) >= 2:
-            variant_conditions.append("search_blob LIKE ?")
-            params.append(f"%{v}%")
+        normalized_variant = normalize_basic(variant)
+        if len(normalized_variant) >= 2:
+            variants.append(normalized_variant)
+
+    variant_conditions = []
+    for variant in variants[:8]:
+        variant_conditions.append("search_blob LIKE ?")
+        params.append(f"%{variant}%")
 
     if variant_conditions:
-        conditions.append("(" + " OR ".join(variant_conditions[:8]) + ")")
+        conditions.append("(" + " OR ".join(variant_conditions) + ")")
 
     sql = f"""
         SELECT path, name, target_type, source_kind, normalized_name, search_blob, parent_path
         FROM filesystem_index
         WHERE {' AND '.join(conditions)}
-        LIMIT {limit}
+        LIMIT {int(limit)}
     """
 
     try:
@@ -81,6 +94,7 @@ def _variant_similarity(query_text: str, candidate_text: str) -> float:
             if qv == cv:
                 score = max(score, 100.0)
             best = max(best, score)
+
     return best
 
 
@@ -187,15 +201,12 @@ def _score_single_app_candidate(query: str, row) -> float:
     score -= _token_penalty(query_norm, name_norm)
     score -= _length_penalty(query_norm, name_norm)
 
-    # Start Menu / Programs — полезный, но умеренный бонус
     if "start menu" in path_lower or "\\programs\\" in path_lower:
         score += 4.0
 
-    # Совпадение в пути — небольшой бонус
     if query_norm and query_norm in path_norm:
         score += 2.0
 
-    # Контекст родительской папки полезен, но не должен перебивать имя
     if parent_name:
         parent_combo = f"{parent_name} {name}"
         parent_score = _variant_similarity(query, parent_combo)
@@ -225,6 +236,7 @@ def _score_single_app_candidate(query: str, row) -> float:
 
 def _score_rows(query: str, rows) -> List[Candidate]:
     results = []
+
     for row in rows:
         score = _score_single_app_candidate(query, row)
         if score >= APP_MATCH_THRESHOLD:
@@ -249,12 +261,12 @@ def _fallback_scan_apps(query: str) -> List[Candidate]:
 
         try:
             for root, _, files in os.walk(root_path):
-                for f in files:
-                    if not f.lower().endswith((".lnk", ".url", ".exe")):
+                for file_name in files:
+                    if not file_name.lower().endswith((".lnk", ".url", ".exe")):
                         continue
 
-                    full_path = str(Path(root) / f)
-                    name = Path(f).stem
+                    full_path = str(Path(root) / file_name)
+                    name = Path(file_name).stem
                     row_like = {
                         "name": name,
                         "path": full_path,

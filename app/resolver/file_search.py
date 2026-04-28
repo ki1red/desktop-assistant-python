@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,7 +11,7 @@ from app.utils import get_priority_roots
 from app.text_variants import build_name_variants, normalize_basic
 from app.search_filters import is_bad_generic_file_candidate, is_safe_user_openable_file
 from app.runtime_control import runtime_control
-import sqlite3
+
 
 def _build_priority_source_kinds() -> set[str]:
     keys = set(get_priority_roots().keys())
@@ -32,6 +33,15 @@ def _fetch_candidates_by_type_prefiltered(
     source_kinds: Optional[set[str]] = None,
     limit: int = 400
 ):
+    """
+    Берёт из индекса кандидатов нужного типа.
+
+    Важно:
+    количество LIKE-условий и params должно совпадать.
+    Раньше SQL использовал только первые 8 variant_conditions,
+    но params содержал все варианты. Это давало ошибку SQLite:
+    Incorrect number of bindings supplied.
+    """
     conn = get_connection()
     cur = conn.cursor()
 
@@ -43,21 +53,25 @@ def _fetch_candidates_by_type_prefiltered(
         conditions.append(f"source_kind IN ({placeholders})")
         params.extend(list(source_kinds))
 
-    variant_conditions = []
+    variants = []
     for variant in sorted(build_name_variants(query)):
-        v = normalize_basic(variant)
-        if len(v) >= 2:
-            variant_conditions.append("search_blob LIKE ?")
-            params.append(f"%{v}%")
+        normalized_variant = normalize_basic(variant)
+        if len(normalized_variant) >= 2:
+            variants.append(normalized_variant)
+
+    variant_conditions = []
+    for variant in variants[:8]:
+        variant_conditions.append("search_blob LIKE ?")
+        params.append(f"%{variant}%")
 
     if variant_conditions:
-        conditions.append("(" + " OR ".join(variant_conditions[:8]) + ")")
+        conditions.append("(" + " OR ".join(variant_conditions) + ")")
 
     sql = f"""
         SELECT path, name, target_type, source_kind, extension, normalized_name, search_blob
         FROM filesystem_index
         WHERE {' AND '.join(conditions)}
-        LIMIT {limit}
+        LIMIT {int(limit)}
     """
 
     try:
@@ -91,6 +105,7 @@ def _score_rows(query: str, rows, generic_mode: bool = False) -> List[Candidate]
                 continue
 
         score = score_candidate(query, name, row["source_kind"], full_path)
+
         if score >= FILE_MATCH_THRESHOLD:
             results.append(Candidate(
                 name=name,
@@ -103,7 +118,12 @@ def _score_rows(query: str, rows, generic_mode: bool = False) -> List[Candidate]
     return results[:MAX_CANDIDATES]
 
 
-def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bool = False, max_found: int = 20) -> List[Candidate]:
+def _fallback_scan_priority_roots(
+    query: str,
+    wanted_type: str,
+    generic_mode: bool = False,
+    max_found: int = 20
+) -> List[Candidate]:
     roots = get_priority_roots()
     results = []
 
@@ -122,47 +142,52 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
                     return []
 
                 if wanted_type == "folder":
-                    for d in dirs:
+                    for folder_name in dirs:
                         if runtime_control.is_cancelled():
                             print("[SEARCH] Поиск отменён пользователем.")
                             return []
 
-                        full_path = str(Path(root) / d)
-                        score = score_candidate(query, d, source_kind, full_path)
+                        full_path = str(Path(root) / folder_name)
+                        score = score_candidate(query, folder_name, source_kind, full_path)
+
                         if score >= FILE_MATCH_THRESHOLD:
                             results.append(Candidate(
-                                name=d,
+                                name=folder_name,
                                 path=full_path,
                                 score=score,
                                 target_type="folder"
                             ))
+
                             if len(results) >= max_found:
                                 return sorted(results, key=lambda x: x.score, reverse=True)[:MAX_CANDIDATES]
 
                 elif wanted_type == "file":
-                    for f in files:
+                    for file_name in files:
                         if runtime_control.is_cancelled():
                             print("[SEARCH] Поиск отменён пользователем.")
                             return []
 
-                        full_path = str(Path(root) / f)
+                        full_path = str(Path(root) / file_name)
 
                         if generic_mode:
-                            if is_bad_generic_file_candidate(f, full_path):
+                            if is_bad_generic_file_candidate(file_name, full_path):
                                 continue
-                            if not is_safe_user_openable_file(f, full_path):
+                            if not is_safe_user_openable_file(file_name, full_path):
                                 continue
 
-                        score = score_candidate(query, f, source_kind, full_path)
+                        score = score_candidate(query, file_name, source_kind, full_path)
+
                         if score >= FILE_MATCH_THRESHOLD:
                             results.append(Candidate(
-                                name=f,
+                                name=file_name,
                                 path=full_path,
                                 score=score,
                                 target_type="file"
                             ))
+
                             if len(results) >= max_found:
                                 return sorted(results, key=lambda x: x.score, reverse=True)[:MAX_CANDIDATES]
+
         except (PermissionError, OSError):
             continue
 
@@ -170,7 +195,12 @@ def _fallback_scan_priority_roots(query: str, wanted_type: str, generic_mode: bo
     return results[:MAX_CANDIDATES]
 
 
-def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = False, deep_search: bool = False) -> List[Candidate]:
+def search_indexed_targets(
+    query: str,
+    wanted_type: str,
+    generic_mode: bool = False,
+    deep_search: bool = False
+) -> List[Candidate]:
     if runtime_control.is_cancelled():
         print("[SEARCH] Поиск отменён пользователем.")
         return []
@@ -195,7 +225,13 @@ def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = Fa
     if not deep_search:
         if priority_results:
             return priority_results
-        return _fallback_scan_priority_roots(query, wanted_type, generic_mode=generic_mode, max_found=12)
+
+        return _fallback_scan_priority_roots(
+            query,
+            wanted_type,
+            generic_mode=generic_mode,
+            max_found=12
+        )
 
     all_rows = _fetch_candidates_by_type_prefiltered(
         wanted_type=wanted_type,
@@ -212,4 +248,9 @@ def search_indexed_targets(query: str, wanted_type: str, generic_mode: bool = Fa
     if all_results:
         return all_results
 
-    return _fallback_scan_priority_roots(query, wanted_type, generic_mode=generic_mode, max_found=30)
+    return _fallback_scan_priority_roots(
+        query,
+        wanted_type,
+        generic_mode=generic_mode,
+        max_found=30
+    )
