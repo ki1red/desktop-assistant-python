@@ -4,11 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства.">
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Какие-то ещё изменения..">
+      <change afterPath="$PROJECT_DIR$/app/speech/vosk_wake_detector.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/background_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/background_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assistant_app.spec" beforeDir="false" afterPath="$PROJECT_DIR$/assistant_app.spec" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/default_settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/default_settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -353,7 +356,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777392064668</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="Какие-то ещё изменения..">
+      <option name="closed" value="true" />
+      <created>1777482975799</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1777482975799</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -368,7 +379,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются." />
     <MESSAGE value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
     <MESSAGE value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
     <MESSAGE value="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)" />
@@ -393,6 +403,7 @@
     <MESSAGE value="Добавление плагинов." />
     <MESSAGE value="Теперь приложение реагирует на доступность/недоступность микрофона" />
     <MESSAGE value="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства." />
-    <option name="LAST_COMMIT_MESSAGE" value="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства." />
+    <MESSAGE value="Какие-то ещё изменения.." />
+    <option name="LAST_COMMIT_MESSAGE" value="Какие-то ещё изменения.." />
   </component>
 </project>

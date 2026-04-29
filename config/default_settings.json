@@ -58,8 +58,12 @@
     "activation_mode": "hotkey",
     "voice_activation_phrase": "ассистент",
     "comment_actions": true,
-    "wake_record_seconds": 1.8,
+    "wake_engine": "vosk",
+    "wake_vosk_model_path": "models/vosk-model-small-ru-0.22",
+    "wake_vosk_sample_rate": 16000,
+    "wake_vosk_block_size": 4000,
     "wake_check_interval_sec": 0.35,
+    "wake_post_activation_cooldown_sec": 2.5,
     "enabled_plugins": [
       "filesystem",
       "web",
