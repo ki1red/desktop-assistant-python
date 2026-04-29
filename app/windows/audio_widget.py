@@ -103,6 +103,7 @@ class AudioSettingsWidget(QWidget):
         settings_service.subscribe(self._on_settings_changed)
 
         self._loading_controls = False
+        self._refreshing_device_lists = False
         self._dirty = False
         self._saved_form_state = {}
 
@@ -111,6 +112,8 @@ class AudioSettingsWidget(QWidget):
         self._latest_level = 0
         self._calibration_samples = []
         self._calibration_active = False
+        self._selected_mic_value = self.config.get("audio", {}).get("input_device_name", "") or ""
+        self._selected_output_value = self.config.get("audio", {}).get("output_device_name", "") or ""
 
         self._build_ui()
         self._connect_change_signals()
@@ -289,6 +292,8 @@ class AudioSettingsWidget(QWidget):
         self.devices_timer.start(5000)
 
     def _connect_change_signals(self):
+        self.mic_combo.currentIndexChanged.connect(self._on_mic_selection_changed)
+        self.output_combo.currentIndexChanged.connect(self._on_output_selection_changed)
         self.mic_combo.currentIndexChanged.connect(self._update_save_buttons)
         self.output_combo.currentIndexChanged.connect(self._update_save_buttons)
         self.microphone_enabled_checkbox.stateChanged.connect(self._update_save_buttons)
@@ -339,12 +344,25 @@ class AudioSettingsWidget(QWidget):
         if self.isVisible() and not self._dirty:
             self.refresh_devices(force_refresh=True)
 
+    def _on_mic_selection_changed(self):
+        if self._loading_controls or self._refreshing_device_lists:
+            return
+
+        self._selected_mic_value = self.mic_combo.currentData() or ""
+
+    def _on_output_selection_changed(self):
+        if self._loading_controls or self._refreshing_device_lists:
+            return
+
+        self._selected_output_value = self.output_combo.currentData() or ""
+
     def _populate_device_lists(self, selected_mic: str, selected_output: str, force_refresh: bool = False):
+        self._refreshing_device_lists = True
         self.mic_combo.blockSignals(True)
         self.output_combo.blockSignals(True)
 
         if force_refresh:
-            refresh_audio_devices(force=False)
+            refresh_audio_devices(force=True)
 
         self.mic_combo.clear()
         self.mic_combo.addItem("Не выбрано", "")
@@ -371,7 +389,10 @@ class AudioSettingsWidget(QWidget):
 
             if idx < 0:
                 self.mic_combo.addItem(f"Недоступно: {selected_mic}", selected_mic)
-                idx = self.mic_combo.count() - 1
+                last_index = self.mic_combo.count() - 1
+                self.mic_combo.insertItem(1, self.mic_combo.itemText(last_index), self.mic_combo.itemData(last_index))
+                self.mic_combo.removeItem(self.mic_combo.count() - 1)
+                idx = 1
 
             self.mic_combo.setCurrentIndex(idx)
         else:
@@ -407,6 +428,7 @@ class AudioSettingsWidget(QWidget):
 
         self.mic_combo.blockSignals(False)
         self.output_combo.blockSignals(False)
+        self._refreshing_device_lists = False
 
     def refresh_devices(self, force_refresh: bool = True):
         if self._meter_stream is not None:
@@ -414,12 +436,14 @@ class AudioSettingsWidget(QWidget):
             return
 
         if self._dirty:
-            selected_mic = self.mic_combo.currentData() or ""
-            selected_output = self.output_combo.currentData() or ""
+            selected_mic = self._selected_mic_value
+            selected_output = self._selected_output_value
         else:
             cfg = settings_service.get_all()
-            selected_mic = cfg.get("audio", {}).get("input_device_name", "")
-            selected_output = cfg.get("audio", {}).get("output_device_name", "")
+            selected_mic = cfg.get("audio", {}).get("input_device_name", "") or ""
+            selected_output = cfg.get("audio", {}).get("output_device_name", "") or ""
+            self._selected_mic_value = selected_mic
+            self._selected_output_value = selected_output
 
         self._populate_device_lists(selected_mic, selected_output, force_refresh=force_refresh)
         self.refresh_status()
@@ -430,10 +454,12 @@ class AudioSettingsWidget(QWidget):
         self.config = settings_service.get_all()
         audio = self.config.get("audio", {})
         voice = self.config.get("voice", {})
+        self._selected_mic_value = audio.get("input_device_name", "") or ""
+        self._selected_output_value = audio.get("output_device_name", "") or ""
 
         self._populate_device_lists(
-            audio.get("input_device_name", ""),
-            audio.get("output_device_name", ""),
+            self._selected_mic_value,
+            self._selected_output_value,
             force_refresh=True,
         )
 
@@ -462,8 +488,8 @@ class AudioSettingsWidget(QWidget):
     def _capture_form_state(self) -> dict:
         return {
             "microphone_enabled": self.microphone_enabled_checkbox.isChecked(),
-            "input_device_name": self.mic_combo.currentData() or "",
-            "output_device_name": self.output_combo.currentData() or "",
+            "input_device_name": self._selected_mic_value,
+            "output_device_name": self._selected_output_value,
             "voice_enabled": self.enabled_voice_checkbox.isChecked(),
             "input_gain": self.input_gain_edit.text().strip(),
             "max_record_seconds": self.max_record_edit.text().strip(),
@@ -507,7 +533,7 @@ class AudioSettingsWidget(QWidget):
                 "Использование микрофона выключено. Без микрофона ассистент не сможет принимать голосовые команды."
             )
 
-        selected_mic = self.mic_combo.currentData() or ""
+        selected_mic = self._selected_mic_value
         if not selected_mic:
             return "Недоступно", "bad", "Микрофон не выбран. Выберите устройство ввода из списка."
 
@@ -535,7 +561,7 @@ class AudioSettingsWidget(QWidget):
         _apply_status_style(self.overall_status, status_kind)
 
     def _find_selected_input_device_index(self):
-        selected_name = self.mic_combo.currentData()
+        selected_name = self._selected_mic_value
         if not selected_name:
             return None
 
@@ -743,7 +769,7 @@ class AudioSettingsWidget(QWidget):
             cfg.setdefault("audio", {})
             cfg["audio"]["input_gain"] = recommended_gain
             cfg["audio"]["silence_threshold"] = silence_threshold
-            cfg["audio"]["input_device_name"] = self.mic_combo.currentData() or ""
+            cfg["audio"]["input_device_name"] = self._selected_mic_value
             cfg["audio"]["microphone_enabled"] = self.microphone_enabled_checkbox.isChecked()
 
         settings_service.update(mutator)

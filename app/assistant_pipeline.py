@@ -540,6 +540,11 @@ class AssistantPipeline:
             logger.info("Операция отменена пользователем до обработки текста.")
             return None
 
+        try:
+            self.notifier.stop_speaking()
+        except Exception as e:
+            logger.debug("Не удалось остановить TTS перед run_text: %s", e)
+
         raw_text = (text or "").strip()
 
         if not raw_text:
@@ -620,6 +625,11 @@ class AssistantPipeline:
         """
         print("[PIPELINE] Начало цикла обработки команды.")
         logger.info("Начало цикла обработки команды.")
+
+        try:
+            self.notifier.stop_speaking()
+        except Exception as e:
+            logger.debug("Не удалось остановить TTS перед run_once: %s", e)
 
         wav_path = None
 

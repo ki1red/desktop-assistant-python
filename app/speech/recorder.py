@@ -465,9 +465,10 @@ def record_audio_to_wav() -> str:
     temp_dir = Path(paths_cfg["temp_dir"])
     temp_dir.mkdir(parents=True, exist_ok=True)
 
+    # Во время обычной записи нельзя молча переключаться на другой микрофон.
     device_index, resolved_name = resolve_input_device(
         selected_name=selected_device_name,
-        allow_fallback=True,
+        allow_fallback=False,
         refresh=True,
     )
     logger.info("Используется устройство записи: %s (index=%s)", resolved_name, device_index)
@@ -588,9 +589,10 @@ def record_wake_audio_to_wav(max_seconds: float | None = None) -> str:
     temp_dir = Path(paths_cfg["temp_dir"])
     temp_dir.mkdir(parents=True, exist_ok=True)
 
+    # Wake-listener тоже должен использовать только сохранённый микрофон.
     device_index, resolved_name = resolve_input_device(
         selected_name=selected_device_name,
-        allow_fallback=True,
+        allow_fallback=False,
         refresh=True,
     )
 

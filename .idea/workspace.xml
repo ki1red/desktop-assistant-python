@@ -4,15 +4,19 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Теперь приложение реагирует на доступность/недоступность микрофона">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/speech/recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/speech/recorder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/windows/audio_widget.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/audio_widget.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="555" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -41,6 +45,13 @@
     &quot;accountId&quot;: &quot;78327ebc-2265-486c-b44d-bcd9115895b9&quot;
   }
 }</component>
+  <component name="LLMProjectSettings">
+    <option name="turned_on" value="false" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -71,11 +82,15 @@
     &quot;Python.resolver.executor&quot;: &quot;Run&quot;,
     &quot;Python.run_background.executor&quot;: &quot;Run&quot;,
     &quot;Python.voice_widget.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;new__project&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
@@ -330,7 +345,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777391165922</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства.">
+      <option name="closed" value="true" />
+      <created>1777392064668</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1777392064668</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -345,7 +368,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Улучшен поиск.&#10;Из поиска убраны мусорные файлы.&#10;Добавлена система лайков." />
     <MESSAGE value="Вроде бы что-то с улучшением поиска&#10;Кандидаты всё ещё имеются." />
     <MESSAGE value="Стал запускаться Yandex.&#10;Появились штрафы за превышение количества токенов." />
     <MESSAGE value="Обновлен поиск.&#10;Обновлены настройки.&#10;Добавлено, но не протестировано взаимодействие с музыкой и браузером.&#10;Добавлены часто запрашиваемые эндпоинты" />
@@ -370,6 +392,7 @@
     <MESSAGE value="Добавлена активация по голосу. Рабоатет нормально." />
     <MESSAGE value="Добавление плагинов." />
     <MESSAGE value="Теперь приложение реагирует на доступность/недоступность микрофона" />
-    <option name="LAST_COMMIT_MESSAGE" value="Теперь приложение реагирует на доступность/недоступность микрофона" />
+    <MESSAGE value="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства." />
+    <option name="LAST_COMMIT_MESSAGE" value="Улучшен вывод списка доступных микрофонов. Убраны лишние устройства." />
   </component>
 </project>
