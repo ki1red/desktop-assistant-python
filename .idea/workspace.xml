@@ -4,14 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Первый этап изменения архитектруы.">
-      <change afterPath="$PROJECT_DIR$/app/plugins/runtime_state_guard.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/windows/chat_plugin_widget.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/windows/dictation_plugin_widget.py" afterDir="false" />
+    <list default="true" id="febcc65d-5b7a-4147-a7e6-a39902ba2125" name="Changes" comment="Общение и диктовка вынесены в отдельные плагины">
+      <change afterPath="$PROJECT_DIR$/app/windows/filesystem_plugin_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/windows/music_plugin_widget.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/windows/web_plugin_widget.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/assistant_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/assistant_pipeline.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/plugins/ui_registry.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/plugins/ui_registry.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/windows/app_runtime.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/windows/app_runtime.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -380,7 +377,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777552513811</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="Общение и диктовка вынесены в отдельные плагины">
+      <option name="closed" value="true" />
+      <created>1777554338695</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1777554338695</updated>
+    </task>
+    <option name="localTasksCounter" value="35" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -395,7 +400,6 @@
     </option>
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Создано UI приложение настроек&#10;Добавлено озвучивание ассистента (работает плохо)" />
     <MESSAGE value="Улучшено озвучивание ассистента.&#10;Голосовые команды вновь работают нормально." />
     <MESSAGE value="Теперь голосовые команды распознаются до паузы, а не 5 секунд.&#10;Починено прерывание запроса." />
     <MESSAGE value="Добавлена прослойка для создания кроссплатформенности.&#10;Исправлена ошибка с прерыванием больших запросов к бд (не протестировано)" />
@@ -420,6 +424,7 @@
     <MESSAGE value="Какие-то ещё изменения.." />
     <MESSAGE value="Внедрено использование Vosk на распознавание обращения к ассистенту." />
     <MESSAGE value="Первый этап изменения архитектруы." />
-    <option name="LAST_COMMIT_MESSAGE" value="Первый этап изменения архитектруы." />
+    <MESSAGE value="Общение и диктовка вынесены в отдельные плагины" />
+    <option name="LAST_COMMIT_MESSAGE" value="Общение и диктовка вынесены в отдельные плагины" />
   </component>
 </project>

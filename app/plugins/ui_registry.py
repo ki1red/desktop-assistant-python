@@ -42,10 +42,16 @@ def _builtin_plugin_tab_factories() -> dict[str, tuple[str, Callable[[], object]
     """
     from app.windows.chat_plugin_widget import ChatPluginWidget
     from app.windows.dictation_plugin_widget import DictationPluginWidget
+    from app.windows.music_plugin_widget import MusicPluginWidget
+    from app.windows.web_plugin_widget import WebPluginWidget
+    from app.windows.filesystem_plugin_widget import FilesystemPluginWidget
 
     return {
         "chat": ("Общение", ChatPluginWidget, True),
         "dictation": ("Диктовка", DictationPluginWidget, True),
+        "music": ("Музыка", MusicPluginWidget, True),
+        "web": ("Веб", WebPluginWidget, True),
+        "filesystem": ("Файловая система", FilesystemPluginWidget, True),
     }
 
 
