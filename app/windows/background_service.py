@@ -19,6 +19,8 @@ logger = get_logger("background_service")
 class BackgroundAssistantService:
     def __init__(self):
         self.pipeline = None
+        self._pipeline_lock = threading.RLock()
+        self._pipeline_warmup_thread = None
 
         self.notifier = AssistantNotifier()
         self.listener = None
@@ -40,24 +42,42 @@ class BackgroundAssistantService:
         self._wake_suppressed_until = 0.0
         self._wake_detector = VoskWakeDetector()
 
-        # Чтобы не накапливать несколько рестартов подряд,
-        # когда пользователь несколько раз сказал wake-фразу во время busy-состояния.
-        self._pending_voice_restart = False
-        self._pending_voice_restart_lock = threading.RLock()
-
         self._apply_config(settings_service.get_all())
         settings_service.subscribe(self._on_settings_changed)
 
     def _get_pipeline(self):
-        if self.pipeline is None:
-            logger.info("Создание AssistantPipeline по требованию.")
+        with self._pipeline_lock:
+            if self.pipeline is None:
+                logger.info("Создание AssistantPipeline по требованию.")
 
-            from app.assistant_pipeline import AssistantPipeline
+                from app.assistant_pipeline import AssistantPipeline
 
-            self.pipeline = AssistantPipeline()
-            logger.info("AssistantPipeline создан.")
+                self.pipeline = AssistantPipeline()
+                logger.info("AssistantPipeline создан.")
 
-        return self.pipeline
+            return self.pipeline
+
+    def _warmup_pipeline_worker(self):
+        try:
+            logger.info("Прогрев AssistantPipeline запущен.")
+            self._get_pipeline()
+            logger.info("Прогрев AssistantPipeline завершён.")
+        except Exception as e:
+            logger.exception("Ошибка прогрева AssistantPipeline: %s", e)
+
+    def _ensure_pipeline_warmup_started(self):
+        with self._pipeline_lock:
+            if self.pipeline is not None:
+                return
+
+            if self._pipeline_warmup_thread is not None and self._pipeline_warmup_thread.is_alive():
+                return
+
+            self._pipeline_warmup_thread = threading.Thread(
+                target=self._warmup_pipeline_worker,
+                daemon=True,
+            )
+            self._pipeline_warmup_thread.start()
 
     def _apply_config(self, config_snapshot: dict):
         bg = config_snapshot.get("background", {})
@@ -84,6 +104,9 @@ class BackgroundAssistantService:
         self.wake_post_activation_cooldown_sec = max(0.5, min(new_wake_cooldown, 10.0))
 
         self._wake_detector.reload_from_settings(config_snapshot)
+
+        if self.activation_mode == "voice":
+            self._ensure_pipeline_warmup_started()
 
         if self._running and (hotkey_changed or cancel_changed):
             logger.info(
@@ -113,9 +136,6 @@ class BackgroundAssistantService:
             pass
 
     def _suppress_wake_for(self, seconds: float):
-        """
-        На время отключает wake-listener.
-        """
         until = time.time() + max(0.0, float(seconds))
         self._wake_suppressed_until = max(self._wake_suppressed_until, until)
 
@@ -130,84 +150,27 @@ class BackgroundAssistantService:
         self._cleanup_dead_thread()
         return self._worker_thread is not None and self._worker_thread.is_alive()
 
-    def _has_pending_voice_restart(self) -> bool:
-        with self._pending_voice_restart_lock:
-            return self._pending_voice_restart
-
-    def _set_pending_voice_restart(self, value: bool):
-        with self._pending_voice_restart_lock:
-            self._pending_voice_restart = bool(value)
-
     def _prepare_for_new_activation(self):
         """
-        Готовит ассистента к новой записи.
-
-        Главное: мгновенно останавливаем TTS, чтобы голос ассистента
-        не попадал в микрофон во время новой команды.
+        Готовит ассистента к новой записи:
+        - останавливает TTS;
+        - временно подавляет wake-listener.
         """
         try:
             self.notifier.stop_speaking()
         except Exception as e:
             logger.debug("Не удалось остановить озвучку перед активацией: %s", e)
 
-        self._suppress_wake_for(0.8)
-
-    def _cancel_current_operation_now(self):
-        logger.info("Запрошена отмена текущей операции.")
-        print("[BG] Запрошена отмена текущей операции.")
-
-        runtime_control.cancel_job()
-
-        if self.pipeline is not None:
-            self.pipeline.cancel_current_operation()
-
-    def _schedule_voice_restart_after_cancel(self):
-        """
-        Для voice activation:
-        если ассистент уже занят, отменяем текущую операцию
-        и сразу после освобождения запускаем новое прослушивание команды.
-        """
-        if self._has_pending_voice_restart():
-            logger.info("Voice restart уже запланирован. Повторная постановка не требуется.")
-            return False
-
-        self._set_pending_voice_restart(True)
-        self._cancel_current_operation_now()
         self._suppress_wake_for(1.0)
-
-        def restart_worker():
-            try:
-                deadline = time.time() + 4.0
-
-                while time.time() < deadline:
-                    if not self.is_busy():
-                        break
-                    time.sleep(0.05)
-
-                if not self._running:
-                    logger.info("Voice restart отменён: сервис уже остановлен.")
-                    return
-
-                if self.is_paused:
-                    logger.info("Voice restart отменён: сервис на паузе.")
-                    return
-
-                if self.is_busy():
-                    logger.warning("Voice restart не выполнен: предыдущая операция не завершилась вовремя.")
-                    return
-
-                logger.info("Запускаю новое прослушивание команды после voice-cancel.")
-                self._request_activation(source="voice_restart")
-
-            finally:
-                self._set_pending_voice_restart(False)
-
-        threading.Thread(target=restart_worker, daemon=True).start()
-        return True
 
     def _request_activation(self, source: str = "hotkey", initial_text: str | None = None) -> bool:
         """
         Запускает обработку команды.
+
+        Для voice-mode после Vosk-срабатывания:
+        - сначала гарантируем готовность pipeline;
+        - только потом подаём beep;
+        - только потом начинаем реальную запись команды.
         """
         if self.is_paused:
             logger.info("Активация проигнорирована: ассистент на паузе. source=%s", source)
@@ -217,21 +180,22 @@ class BackgroundAssistantService:
 
         if self.is_busy():
             if source == "hotkey" and self.cancel_on_second_press:
-                self._cancel_current_operation_now()
+                logger.info("Запрошена отмена текущей операции.")
+                print("[BG] Запрошена отмена текущей операции.")
+
+                runtime_control.cancel_job()
+
+                if self.pipeline is not None:
+                    self.pipeline.cancel_current_operation()
+
                 self._suppress_wake_for(self.wake_post_activation_cooldown_sec)
                 self.notifier.say("Текущая операция отменена.")
-                return False
+            else:
+                logger.info("Ассистент уже обрабатывает предыдущую команду. source=%s", source)
 
-            if source in {"voice", "voice_restart"}:
-                logger.info("Получена voice-активация во время busy. Отменяю текущую операцию и перезапускаю прослушивание.")
-                self._schedule_voice_restart_after_cancel()
-                return False
-
-            logger.info("Ассистент уже обрабатывает предыдущую команду. source=%s", source)
-
-            if source == "hotkey":
-                print("[BG] Ассистент уже обрабатывает предыдущую команду.")
-                self.notifier.say("Я ещё работаю.")
+                if source == "hotkey":
+                    print("[BG] Ассистент уже обрабатывает предыдущую команду.")
+                    self.notifier.say("Я ещё работаю.")
 
             return False
 
@@ -241,16 +205,20 @@ class BackgroundAssistantService:
             try:
                 self._prepare_for_new_activation()
 
-                if source in {"voice", "voice_restart"}:
+                # ВАЖНО:
+                # сначала гарантируем готовность pipeline/Whisper,
+                # и только потом сигнализируем пользователю, что можно говорить.
+                pipeline = self._get_pipeline()
+
+                if source == "voice":
                     logger.info("Голосовая активация Vosk сработала.")
                     print("[BG] Голосовая активация Vosk сработала.")
                 else:
                     logger.info("Горячая клавиша нажата. Слушаю команду...")
                     print("[BG] Горячая клавиша нажата. Слушаю команду...")
 
+                self._suppress_wake_for(1.5)
                 self._beep()
-
-                pipeline = self._get_pipeline()
 
                 if initial_text:
                     pipeline.run_text(
@@ -280,21 +248,24 @@ class BackgroundAssistantService:
         self._request_activation(source="hotkey")
 
     def _can_listen_for_wake(self) -> bool:
-        """
-        Важно:
-        во время busy-состояния wake-listener тоже должен работать,
-        чтобы пользователь мог прервать текущую команду голосом.
-
-        Но если уже запланирован restart после отмены, второй раз слушать не нужно.
-        """
         return (
             self.activation_mode == "voice"
             and not self._is_wake_suppressed()
             and not self.notifier.is_speaking()
             and not self.is_paused
-            and not self._has_pending_voice_restart()
+            and not self.is_busy()
             and self._is_microphone_allowed()
         )
+
+    def _wait_until_command_finishes(self, stop_event: threading.Event):
+        """
+        После успешного wake-срабатывания не даём Vosk снова слушать,
+        пока текущая команда ещё записывается/распознаётся/выполняется.
+        """
+        while not stop_event.is_set():
+            if not self.is_busy() and not self._is_wake_suppressed():
+                return
+            stop_event.wait(0.10)
 
     def _wake_worker(self, stop_event: threading.Event):
         logger.info(
@@ -325,9 +296,10 @@ class BackgroundAssistantService:
                     logger.info("Vosk распознал wake-фразу: %r", self._wake_detector.phrase)
                     print(f"[BG] Vosk распознал wake-фразу: {self._wake_detector.phrase}")
 
-                    self._suppress_wake_for(0.3)
-                    self._request_activation(source="voice")
-                    stop_event.wait(0.15)
+                    activated = self._request_activation(source="voice")
+                    if activated:
+                        self._wait_until_command_finishes(stop_event)
+
                     continue
 
                 stop_event.wait(self.wake_check_interval_sec)
@@ -396,6 +368,7 @@ class BackgroundAssistantService:
             return
 
         if self.activation_mode == "voice":
+            self._ensure_pipeline_warmup_started()
             self._start_wake_listener()
         else:
             self._stop_wake_listener()
@@ -491,6 +464,9 @@ class BackgroundAssistantService:
             return
 
         self._running = True
+
+        if self.activation_mode == "voice":
+            self._ensure_pipeline_warmup_started()
 
         self._restart_listener()
         self._sync_wake_listener()

@@ -58,12 +58,8 @@
     "activation_mode": "hotkey",
     "voice_activation_phrase": "ассистент",
     "comment_actions": true,
-    "wake_engine": "vosk",
-    "wake_vosk_model_path": "models/vosk-model-small-ru-0.22",
-    "wake_vosk_sample_rate": 16000,
-    "wake_vosk_block_size": 4000,
+    "wake_record_seconds": 1.8,
     "wake_check_interval_sec": 0.35,
-    "wake_post_activation_cooldown_sec": 2.5,
     "enabled_plugins": [
       "filesystem",
       "web",
@@ -158,18 +154,6 @@
     "ollama_host": "http://localhost:11434",
     "ollama_model": "gemma3:4b",
     "chat_ollama_model": "gemma3:4b",
-    "ollama_models_path": "",
-    "wake_phrases": [
-      "ассистент",
-      "режим общения",
-      "включи режим общения",
-      "давай поговорим"
-    ],
-    "stop_phrases": [
-      "выключи режим общения",
-      "хватит общаться",
-      "режим общения выключить",
-      "заверши общение"
-    ]
+    "ollama_models_path": ""
   }
 }

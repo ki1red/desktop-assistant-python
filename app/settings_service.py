@@ -40,11 +40,22 @@ class SettingsService:
         self._notify(snapshot)
 
     def update(self, mutate_fn):
+        """
+        Сохраняет изменённый конфиг и сразу приводит in-memory snapshot
+        к нормализованному виду через ConfigLoader.
+
+        Это важно для миграций и мягкой очистки устаревших ключей:
+        mutate_fn может добавить старые поля для совместимости,
+        но после save() в памяти должен остаться уже нормализованный конфиг.
+        """
         with self._lock:
             config_copy = deepcopy(self._config)
             mutate_fn(config_copy)
             self._loader.save(config_copy)
-            self._config = config_copy
+
+            # Берём именно нормализованную версию после save(),
+            # а не исходный config_copy до пост-обработки.
+            self._config = self._loader.get()
             snapshot = deepcopy(self._config)
 
         logger.info("Конфиг обновлён и сохранён.")

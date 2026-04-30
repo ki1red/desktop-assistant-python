@@ -881,8 +881,16 @@ class AISettingsWidget(QWidget):
 
             cfg["ai"]["provider_endpoint"] = state["provider_endpoint"]
             cfg["ai"]["api_key"] = state["api_key"]
-            cfg["ai"]["remote_model"] = state["command_model"] if state["provider_location"] == "remote" else cfg["ai"].get("remote_model", "")
-            cfg["ai"]["remote_chat_model"] = state["chat_model"] if state["provider_location"] == "remote" else cfg["ai"].get("remote_chat_model", "")
+            cfg["ai"]["remote_model"] = (
+                state["command_model"]
+                if state["provider_location"] == "remote"
+                else cfg["ai"].get("remote_model", "")
+            )
+            cfg["ai"]["remote_chat_model"] = (
+                state["chat_model"]
+                if state["provider_location"] == "remote"
+                else cfg["ai"].get("remote_chat_model", "")
+            )
 
             if provider == "ollama":
                 cfg["ai"]["ollama_host"] = state["provider_endpoint"] or "http://localhost:11434"
@@ -898,12 +906,6 @@ class AISettingsWidget(QWidget):
             cfg["ai"]["ollama_models_path"] = state["ollama_models_path"]
             cfg["ai"]["speak_responses"] = state["speak_responses"]
 
-            # Эти поля пока сохраняем для обратной совместимости.
-            # Архитектурно они относятся не к ИИ-провайдеру, а к режиму общения,
-            # поэтому позже их лучше перенести в chat addon.
-            cfg["ai"].setdefault("wake_phrases", [])
-            cfg["ai"].setdefault("stop_phrases", [])
-
         settings_service.update(mutator)
 
         self.config = settings_service.get_all()
@@ -911,4 +913,4 @@ class AISettingsWidget(QWidget):
         self._dirty = False
 
         self.refresh_status()
-        self.save_bar.show_saved("Сохранено!")
+        self.save_bar.show_saved("Успешно настроено")

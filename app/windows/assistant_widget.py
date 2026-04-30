@@ -1,6 +1,3 @@
-import sys
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
@@ -19,7 +16,7 @@ from app.settings_service import settings_service
 from app.logger import get_logger
 from app.windows.ui_kit import make_page_title
 from app.windows.floating_save_bar import FloatingSaveBar
-from app.plugins.settings import DEFAULT_PLUGIN_ENABLED, get_plugin_enabled_map
+from app.plugins.catalog import get_plugin_catalog_items
 
 
 logger = get_logger("assistant_widget")
@@ -33,35 +30,6 @@ HOTKEY_KEY_OPTIONS = [
     ("F10", "<f10>"),
     ("F11", "<f11>"),
     ("F12", "<f12>"),
-]
-
-
-PLUGIN_OPTIONS = [
-    (
-        "filesystem",
-        "Файловая система",
-        "Открытие приложений, файлов и папок из локального индекса.",
-    ),
-    (
-        "web",
-        "Веб-поиск",
-        "Поиск в интернете и поиск на YouTube через выбранные провайдеры.",
-    ),
-    (
-        "music",
-        "Музыка",
-        "Поиск музыки через выбранный музыкальный сервис.",
-    ),
-    (
-        "dictation",
-        "Диктовка",
-        "Режим ввода распознанной речи как текста в активное окно.",
-    ),
-    (
-        "chat",
-        "Общение с ИИ",
-        "Режим диалога с локальной или подключённой ИИ-моделью.",
-    ),
 ]
 
 
@@ -96,6 +64,7 @@ class AssistantWidget(QWidget):
         self._saved_form_state = {}
 
         self.plugin_checkboxes: dict[str, QCheckBox] = {}
+        self._plugin_ids_snapshot: tuple[str, ...] = tuple()
 
         self._build_ui()
         self._connect_change_signals()
@@ -193,11 +162,11 @@ class AssistantWidget(QWidget):
         main_card.layout.addLayout(form)
         root.addWidget(main_card)
 
-        plugins_card = InfoCard()
+        self.plugins_card = InfoCard()
 
         plugins_title = QLabel("Подключённые возможности")
         plugins_title.setStyleSheet("font-size: 24px; font-weight: 600; color: #111827;")
-        plugins_card.layout.addWidget(plugins_title)
+        self.plugins_card.layout.addWidget(plugins_title)
 
         plugins_description = QLabel(
             "Здесь можно включать и выключать отдельные возможности ассистента. "
@@ -205,16 +174,18 @@ class AssistantWidget(QWidget):
         )
         plugins_description.setWordWrap(True)
         plugins_description.setStyleSheet("font-size: 17px; color: #4b5563;")
-        plugins_card.layout.addWidget(plugins_description)
+        self.plugins_card.layout.addWidget(plugins_description)
 
-        for plugin_id, title, tooltip in PLUGIN_OPTIONS:
-            checkbox = QCheckBox(title)
-            checkbox.setToolTip(tooltip)
-            checkbox.setStyleSheet("font-size: 17px;")
-            self.plugin_checkboxes[plugin_id] = checkbox
-            plugins_card.layout.addWidget(checkbox)
+        self.plugins_container = QWidget()
+        self.plugins_container_layout = QVBoxLayout(self.plugins_container)
+        self.plugins_container_layout.setContentsMargins(0, 0, 0, 0)
+        self.plugins_container_layout.setSpacing(10)
 
-        root.addWidget(plugins_card)
+        self.plugins_card.layout.addWidget(self.plugins_container)
+
+        self._rebuild_plugin_controls()
+
+        root.addWidget(self.plugins_card)
         root.addStretch(1)
 
         self.save_bar = FloatingSaveBar(self, "Сохранить")
@@ -232,8 +203,64 @@ class AssistantWidget(QWidget):
         self.voice_phrase_edit.textChanged.connect(self._update_save_buttons)
         self.comment_actions_checkbox.stateChanged.connect(self._update_save_buttons)
 
+        self._connect_plugin_checkbox_signals()
+
+    def _connect_plugin_checkbox_signals(self):
         for checkbox in self.plugin_checkboxes.values():
             checkbox.stateChanged.connect(self._update_save_buttons)
+
+    def _plugin_catalog_snapshot(self) -> tuple[str, ...]:
+        return tuple(item.plugin_id for item in get_plugin_catalog_items())
+
+    def _clear_plugin_controls(self):
+        while self.plugins_container_layout.count():
+            item = self.plugins_container_layout.takeAt(0)
+
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        self.plugin_checkboxes = {}
+
+    def _rebuild_plugin_controls(self):
+        """
+        Полностью перестраивает список плагинов в UI
+        из актуального plugin catalog.
+        """
+        self._clear_plugin_controls()
+
+        for item in get_plugin_catalog_items():
+            checkbox = QCheckBox(item.title)
+            checkbox.setToolTip(item.description or item.plugin_id)
+            checkbox.setStyleSheet("font-size: 17px;")
+            self.plugin_checkboxes[item.plugin_id] = checkbox
+            self.plugins_container_layout.addWidget(checkbox)
+
+        self._plugin_ids_snapshot = self._plugin_catalog_snapshot()
+
+        if hasattr(self, "save_bar"):
+            self._connect_plugin_checkbox_signals()
+
+    def _ensure_plugin_controls_up_to_date(self):
+        """
+        Если состав plugin catalog изменился, перестраиваем чекбоксы.
+
+        Это пригодится, если:
+        - изменился commands.json;
+        - появились неизвестные plugin_id из settings.json;
+        - позже добавятся внешние плагины.
+        """
+        current_snapshot = self._plugin_catalog_snapshot()
+        if current_snapshot == self._plugin_ids_snapshot:
+            return
+
+        logger.info(
+            "AssistantWidget | состав плагинов изменился, перестраиваю UI: old=%s new=%s",
+            self._plugin_ids_snapshot,
+            current_snapshot,
+        )
+
+        self._rebuild_plugin_controls()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -348,18 +375,29 @@ class AssistantWidget(QWidget):
 
         self.hotkey_key_combo.setCurrentIndex(0)
 
+    def _get_enabled_plugins_map_from_config(self) -> dict[str, bool]:
+        plugins_cfg = self.config.get("plugins", {})
+        enabled_map = plugins_cfg.get("enabled", {})
+
+        if isinstance(enabled_map, dict):
+            return {
+                str(plugin_id): bool(enabled)
+                for plugin_id, enabled in enabled_map.items()
+            }
+
+        return {}
+
     def _load_plugins_to_controls(self):
         """
         Загружает состояние чекбоксов плагинов из settings.json.
 
-        Если блока plugins.enabled ещё нет, используются значения по умолчанию:
-        все базовые плагины включены.
+        Список самих плагинов берётся из plugin catalog,
+        а не из захардкоженного списка внутри UI.
         """
-        enabled_map = get_plugin_enabled_map()
+        enabled_map = self._get_enabled_plugins_map_from_config()
 
         for plugin_id, checkbox in self.plugin_checkboxes.items():
-            default_value = DEFAULT_PLUGIN_ENABLED.get(plugin_id, True)
-            checkbox.setChecked(bool(enabled_map.get(plugin_id, default_value)))
+            checkbox.setChecked(bool(enabled_map.get(plugin_id, True)))
 
     def _capture_plugins_state(self) -> dict[str, bool]:
         """
@@ -374,6 +412,8 @@ class AssistantWidget(QWidget):
         self._loading_controls = True
 
         self.config = settings_service.get_all()
+
+        self._ensure_plugin_controls_up_to_date()
 
         assistant = self.config.get("assistant", {})
         background = self.config.get("background", {})
@@ -446,7 +486,8 @@ class AssistantWidget(QWidget):
             cfg["background"]["hotkey"] = state["hotkey"]
 
             # Сохраняем новый основной формат включения плагинов.
-            # Неизвестные plugin_id не удаляем, чтобы позже можно было добавить внешние плагины.
+            # Неизвестные plugin_id не удаляем, чтобы позже можно было
+            # добавить внешние плагины без ломки настроек.
             for plugin_id, enabled in state["plugins_enabled"].items():
                 cfg["plugins"]["enabled"][plugin_id] = bool(enabled)
 

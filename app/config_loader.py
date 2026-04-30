@@ -122,12 +122,29 @@ def _normalize_plugins(cfg: dict) -> dict:
     return cfg
 
 
+def _normalize_ai_config(cfg: dict) -> dict:
+    """
+    Убирает из ai-настроек устаревшие поля команд режима общения.
+
+    Раньше wake_phrases / stop_phrases временно хранились в секции ai,
+    но архитектурно они относятся к chat plugin и теперь берутся
+    из plugin resources.
+    """
+    cfg.setdefault("ai", {})
+
+    cfg["ai"].pop("wake_phrases", None)
+    cfg["ai"].pop("stop_phrases", None)
+
+    return cfg
+
+
 def _normalize_config(cfg: dict) -> dict:
     """
     Общая нормализация конфига после merge и перед сохранением.
     """
     cfg = _normalize_runtime_paths(cfg)
     cfg = _normalize_plugins(cfg)
+    cfg = _normalize_ai_config(cfg)
     return cfg
 
 
