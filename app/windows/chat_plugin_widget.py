@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from app.chat.state import chat_state
 from app.logger import get_logger
 from app.plugins.resources import load_builtin_plugin_definitions
+from app.plugins.settings import is_plugin_enabled, set_plugin_enabled
 from app.settings_service import settings_service
 
 
@@ -71,13 +72,16 @@ class InfoCard(QFrame):
 
 class ChatPluginWidget(QWidget):
     """
-    Первая реальная plugin-tab.
+    Реальная plugin-tab для chat plugin.
 
-    Задачи вкладки:
-    - показать, что chat plugin реально подключается как отдельная вкладка;
-    - показать runtime-состояние chat mode;
-    - дать простой UI для ручного включения/выключения режима общения;
-    - отобразить команды плагина из plugin resources.
+    Показывает:
+    - включён ли chat plugin;
+    - активен ли сейчас режим общения;
+    - команды плагина из plugin resources.
+
+    Даёт управление:
+    - включить/выключить сам plugin;
+    - включить/выключить runtime chat mode.
     """
 
     def __init__(self):
@@ -125,8 +129,7 @@ class ChatPluginWidget(QWidget):
 
         description = QLabel(
             "Эта вкладка относится к chat plugin. Здесь можно посмотреть его состояние, "
-            "вручную включить или выключить режим общения и увидеть команды, "
-            "которые объявлены в plugin resources."
+            "вручную включить или выключить сам плагин и отдельно управлять режимом общения."
         )
         description.setWordWrap(True)
         description.setStyleSheet("font-size: 17px; color: #4b5563;")
@@ -153,8 +156,23 @@ class ChatPluginWidget(QWidget):
 
         overview_card.layout.addLayout(status_grid)
 
-        buttons_row = QHBoxLayout()
-        buttons_row.setSpacing(12)
+        plugin_buttons_row = QHBoxLayout()
+        plugin_buttons_row.setSpacing(12)
+
+        self.enable_plugin_btn = QPushButton("Включить плагин")
+        self.enable_plugin_btn.clicked.connect(self.enable_plugin)
+
+        self.disable_plugin_btn = QPushButton("Выключить плагин")
+        self.disable_plugin_btn.clicked.connect(self.disable_plugin)
+
+        plugin_buttons_row.addWidget(self.enable_plugin_btn)
+        plugin_buttons_row.addWidget(self.disable_plugin_btn)
+        plugin_buttons_row.addStretch(1)
+
+        overview_card.layout.addLayout(plugin_buttons_row)
+
+        mode_buttons_row = QHBoxLayout()
+        mode_buttons_row.setSpacing(12)
 
         self.enable_btn = QPushButton("Включить режим общения")
         self.enable_btn.clicked.connect(self.enable_chat_mode)
@@ -162,11 +180,11 @@ class ChatPluginWidget(QWidget):
         self.disable_btn = QPushButton("Выключить режим общения")
         self.disable_btn.clicked.connect(self.disable_chat_mode)
 
-        buttons_row.addWidget(self.enable_btn)
-        buttons_row.addWidget(self.disable_btn)
-        buttons_row.addStretch(1)
+        mode_buttons_row.addWidget(self.enable_btn)
+        mode_buttons_row.addWidget(self.disable_btn)
+        mode_buttons_row.addStretch(1)
 
-        overview_card.layout.addLayout(buttons_row)
+        overview_card.layout.addLayout(mode_buttons_row)
 
         self.runtime_hint = QLabel("")
         self.runtime_hint.setWordWrap(True)
@@ -207,17 +225,7 @@ class ChatPluginWidget(QWidget):
         self.refresh_all()
 
     def _is_chat_plugin_enabled(self) -> bool:
-        plugins_cfg = self.config.get("plugins", {})
-        enabled_map = plugins_cfg.get("enabled")
-
-        if isinstance(enabled_map, dict):
-            return bool(enabled_map.get("chat", True))
-
-        legacy_enabled = self.config.get("assistant", {}).get("enabled_plugins")
-        if isinstance(legacy_enabled, list):
-            return "chat" in {str(item) for item in legacy_enabled}
-
-        return True
+        return is_plugin_enabled("chat", True)
 
     def _load_commands_from_resources(self):
         definitions = load_builtin_plugin_definitions()
@@ -245,24 +253,23 @@ class ChatPluginWidget(QWidget):
         if enable_command is not None:
             phrases = enable_command.exact_phrases or enable_command.prefixes or []
             preview = ", ".join(phrases[:6]) if phrases else "Фразы не заданы"
-            self.enable_command_label.setText(
-                f"<b>Включение:</b> {preview}"
-            )
+            self.enable_command_label.setText(f"<b>Включение:</b> {preview}")
         else:
             self.enable_command_label.setText("Команда включения не найдена.")
 
         if disable_command is not None:
             phrases = disable_command.exact_phrases or disable_command.prefixes or []
             preview = ", ".join(phrases[:6]) if phrases else "Фразы не заданы"
-            self.disable_command_label.setText(
-                f"<b>Выключение:</b> {preview}"
-            )
+            self.disable_command_label.setText(f"<b>Выключение:</b> {preview}")
         else:
             self.disable_command_label.setText("Команда выключения не найдена.")
 
     def refresh_runtime_state(self):
         plugin_enabled = self._is_chat_plugin_enabled()
         mode_enabled = chat_state.is_enabled()
+
+        self.enable_plugin_btn.setEnabled(not plugin_enabled)
+        self.disable_plugin_btn.setEnabled(plugin_enabled)
 
         if plugin_enabled:
             self.plugin_status_value.setText("включён")
@@ -296,6 +303,16 @@ class ChatPluginWidget(QWidget):
 
     def refresh_all(self):
         self.refresh_runtime_state()
+
+    def enable_plugin(self):
+        set_plugin_enabled("chat", True)
+        logger.info("ChatPluginWidget | plugin enabled from UI")
+        self.refresh_all()
+
+    def disable_plugin(self):
+        set_plugin_enabled("chat", False)
+        logger.info("ChatPluginWidget | plugin disabled from UI")
+        self.refresh_all()
 
     def enable_chat_mode(self):
         if not self._is_chat_plugin_enabled():

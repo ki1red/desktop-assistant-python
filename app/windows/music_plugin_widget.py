@@ -2,13 +2,16 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QGridLayout,
     QFrame,
     QLabel,
+    QPushButton,
 )
 
 from app.logger import get_logger
 from app.plugins.resources import load_builtin_plugin_definitions
+from app.plugins.settings import is_plugin_enabled, set_plugin_enabled
 from app.settings_service import settings_service
 
 
@@ -74,6 +77,9 @@ class MusicPluginWidget(QWidget):
     - включён ли плагин;
     - какой музыкальный провайдер выбран по умолчанию;
     - какие команды объявлены в plugin resources.
+
+    Даёт управление:
+    - включить/выключить сам plugin.
     """
 
     def __init__(self):
@@ -144,6 +150,21 @@ class MusicPluginWidget(QWidget):
 
         overview_card.layout.addLayout(grid)
 
+        plugin_buttons_row = QHBoxLayout()
+        plugin_buttons_row.setSpacing(12)
+
+        self.enable_plugin_btn = QPushButton("Включить плагин")
+        self.enable_plugin_btn.clicked.connect(self.enable_plugin)
+
+        self.disable_plugin_btn = QPushButton("Выключить плагин")
+        self.disable_plugin_btn.clicked.connect(self.disable_plugin)
+
+        plugin_buttons_row.addWidget(self.enable_plugin_btn)
+        plugin_buttons_row.addWidget(self.disable_plugin_btn)
+        plugin_buttons_row.addStretch(1)
+
+        overview_card.layout.addLayout(plugin_buttons_row)
+
         self.runtime_hint = QLabel("")
         self.runtime_hint.setWordWrap(True)
         self.runtime_hint.setStyleSheet("font-size: 15px; color: #687386;")
@@ -179,17 +200,7 @@ class MusicPluginWidget(QWidget):
         self.refresh_all()
 
     def _is_plugin_enabled(self) -> bool:
-        plugins_cfg = self.config.get("plugins", {})
-        enabled_map = plugins_cfg.get("enabled")
-
-        if isinstance(enabled_map, dict):
-            return bool(enabled_map.get("music", True))
-
-        legacy_enabled = self.config.get("assistant", {}).get("enabled_plugins")
-        if isinstance(legacy_enabled, list):
-            return "music" in {str(item) for item in legacy_enabled}
-
-        return True
+        return is_plugin_enabled("music", True)
 
     def _load_commands_from_resources(self):
         definitions = load_builtin_plugin_definitions()
@@ -225,6 +236,9 @@ class MusicPluginWidget(QWidget):
             str(providers.get("default_music_provider", "yandex_music"))
         )
 
+        self.enable_plugin_btn.setEnabled(not enabled)
+        self.disable_plugin_btn.setEnabled(enabled)
+
         if enabled:
             self.plugin_status_value.setText("включён")
             self.status_badge.setText("Активен")
@@ -239,6 +253,16 @@ class MusicPluginWidget(QWidget):
             self.runtime_hint.setText(
                 "Плагин выключен. Команды поиска музыки больше не будут матчиться parser-ом."
             )
+
+    def enable_plugin(self):
+        set_plugin_enabled("music", True)
+        logger.info("MusicPluginWidget | plugin enabled from UI")
+        self.refresh_all()
+
+    def disable_plugin(self):
+        set_plugin_enabled("music", False)
+        logger.info("MusicPluginWidget | plugin disabled from UI")
+        self.refresh_all()
 
     def on_tab_activated(self):
         self.refresh_all()
