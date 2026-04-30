@@ -37,16 +37,16 @@ def _builtin_plugin_tab_factories() -> dict[str, tuple[str, Callable[[], object]
     """
     Реестр встроенных plugin tabs.
 
-    Пока он пустой намеренно:
-    - framework для вкладок уже готов;
-    - реальные widget-вкладки плагинов можно добавлять постепенно,
-      не ломая текущий UI.
-
-    Когда появится реальный widget плагина, просто добавь сюда запись вида:
-        from app.windows.some_plugin_widget import SomePluginWidget
-        "chat": ("Общение", SomePluginWidget, True)
+    Здесь регистрируются реальные вкладки плагинов.
+    Добавляем их постепенно, не ломая существующий UI.
     """
-    return {}
+    from app.windows.chat_plugin_widget import ChatPluginWidget
+    from app.windows.dictation_plugin_widget import DictationPluginWidget
+
+    return {
+        "chat": ("Общение", ChatPluginWidget, True),
+        "dictation": ("Диктовка", DictationPluginWidget, True),
+    }
 
 
 def get_plugin_tab_specs() -> list[PluginTabSpec]:

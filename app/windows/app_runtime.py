@@ -7,6 +7,7 @@ from app.windows.theme import apply_forced_light_theme
 from app.events.notifier import AssistantNotifier
 from app.settings_service import settings_service
 from app.logger import get_logger
+from app.plugins.runtime_state_guard import plugin_runtime_state_guard
 
 
 logger = get_logger("app_runtime")
@@ -24,6 +25,9 @@ class AppRuntime:
         apply_forced_light_theme(self.qt_app)
 
         self.qt_app.setQuitOnLastWindowClosed(False)
+
+        logger.info("AppRuntime.__init__ | start plugin runtime state guard")
+        plugin_runtime_state_guard.start()
 
         logger.info("AppRuntime.__init__ | create notifier")
         self.notifier = AssistantNotifier()
@@ -66,10 +70,11 @@ class AppRuntime:
         hide_window_on_startup = bool(ui.get("hide_window_on_startup", False))
 
         if hide_window_on_startup:
-            logger.info("AppRuntime | startup window hidden by setting")
+            logger.info("AppRuntime | window hidden on startup by settings")
             self.window.hide()
         else:
-            self.window.showNormal()
+            logger.info("AppRuntime | show main window")
+            self.window.show()
             self.window.raise_()
             self.window.activateWindow()
 

@@ -31,6 +31,7 @@ from app.nlu.text_cleanup import cleanup_command_text
 from app.nlu.resources_loader import nlu_resources
 from app.dictation.ai_postprocess import apply_basic_dictation_replacements
 from app.logger import get_logger
+from app.plugins.settings import is_plugin_enabled
 
 
 logger = get_logger("pipeline")
@@ -208,6 +209,27 @@ class AssistantPipeline:
             command.metadata["command_id"] = command_id
 
         return command
+
+    def _sync_runtime_modes_with_plugins(self):
+        """
+        Страховка на случай, если runtime state остался включён,
+        а сам plugin уже выключен в settings.
+        """
+        if chat_state.is_enabled() and not is_plugin_enabled("chat", True):
+            logger.info("Chat runtime mode сброшен в pipeline: plugin chat отключён.")
+            chat_state.disable()
+
+        if dictation_state.is_enabled() and not is_plugin_enabled("dictation", True):
+            logger.info("Dictation runtime mode сброшен в pipeline: plugin dictation отключён.")
+            dictation_state.disable()
+
+    def _is_chat_mode_active(self) -> bool:
+        self._sync_runtime_modes_with_plugins()
+        return chat_state.is_enabled()
+
+    def _is_dictation_mode_active(self) -> bool:
+        self._sync_runtime_modes_with_plugins()
+        return dictation_state.is_enabled()
 
     def _resolve_command(self, command, deep_search: bool = False):
         """
@@ -564,10 +586,10 @@ class AssistantPipeline:
         if language:
             logger.info("Язык распознавания: %s", language)
 
-        if dictation_state.is_enabled():
+        if self._is_dictation_mode_active():
             return self._handle_dictation(raw_text)
 
-        if chat_state.is_enabled():
+        if self._is_chat_mode_active():
             return self._handle_chat_mode(raw_text)
 
         if announce_processing:
@@ -653,7 +675,7 @@ class AssistantPipeline:
                 self.notifier.say("Операция отменена.")
                 return None
 
-            if not dictation_state.is_enabled() and not chat_state.is_enabled():
+            if not self._is_dictation_mode_active() and not self._is_chat_mode_active():
                 self.notifier.say_random("processing")
 
             try:
@@ -663,7 +685,7 @@ class AssistantPipeline:
                 logger.warning("Речь не распознана: %s", e)
                 print(f"[STT][WARN] Речь не распознана: {e}")
 
-                if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                if not self._is_dictation_mode_active() and not self._is_chat_mode_active():
                     self.notifier.say("Я почти ничего не услышал. Попробуйте сказать команду чуть громче.")
 
                 return None
@@ -672,7 +694,7 @@ class AssistantPipeline:
                 logger.exception("Ошибка распознавания аудио: %s", e)
                 print(f"[STT][ERROR] Не удалось распознать аудио: {e}")
 
-                if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                if not self._is_dictation_mode_active() and not self._is_chat_mode_active():
                     self.notifier.say("Не удалось распознать аудио.")
 
                 return None
@@ -680,7 +702,7 @@ class AssistantPipeline:
             if runtime_control.is_cancelled():
                 logger.info("Операция отменена пользователем после STT.")
 
-                if not dictation_state.is_enabled() and not chat_state.is_enabled():
+                if not self._is_dictation_mode_active() and not self._is_chat_mode_active():
                     self.notifier.say("Операция отменена.")
 
                 return None
